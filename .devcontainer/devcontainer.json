@@ -2,11 +2,11 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/postgres
 {
 	"name": "Python 3 & PostgreSQL",
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "app",
-	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-
-	"postCreateCommand": "pip install --user -r requirements.txt"
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "postCreateCommand": "pip install -r requirements.txt",
+    "forwardPorts": [5000]
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
