@@ -1,5 +1,5 @@
 from flask import Blueprint
-from database.connection import get_connection
+from database import get_connection
 
 
 customers_bp = Blueprint(
