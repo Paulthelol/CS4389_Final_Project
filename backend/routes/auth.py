@@ -145,31 +145,6 @@ def login():
     }), 200
 
 
-# LOGOUT
-@auth_bp.route("/logout", methods=["POST"])
-def logout():
-    auth_header = request.headers.get("Authorization", "")
-    parts = auth_header.split()
-
-    if len(parts) != 2 or parts[0].lower() != "bearer":
-        return jsonify({"error": "Authentication required"}), 401
-
-    token = parts[1]
-    token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                DELETE FROM sessions
-                WHERE token_hash = %s;
-                """,
-                (token_hash,)
-            )
-
-    return jsonify({"message": "Logout successful"}), 200
-
-
 #TODO: Add sessions table to database schema
 
 """
