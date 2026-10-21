@@ -1,4 +1,5 @@
-import './style.css';
+// The active application starts at src/main.jsx and does not import this file.
+import '../src/style.css';
 
 let isLogIn = false; // holds the state of the page for if the user is logged in or not
 let correctU = 'Admin';
