@@ -21,3 +21,24 @@ CREATE TABLE accounts (
     account_number VARCHAR(20) NOT NULL UNIQUE,
     balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00
 );
+
+CREATE TABLE transactions (
+    transaction_id BIGSERIAL PRIMARY KEY,
+    account_id BIGINT NOT NULL
+        REFERENCES accounts(account_id),
+    employee_id BIGINT NOT NULL
+        REFERENCES employees(employee_id),
+    amount NUMERIC(12, 2) NOT NULL  -- max of 9999999999.99 ($10 billion)
+        CHECK (amount <> 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE sessions (
+    session_id BIGSERIAL PRIMARY KEY,
+    employee_id BIGINT NOT NULL
+        REFERENCES employees(employee_id)
+        ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
