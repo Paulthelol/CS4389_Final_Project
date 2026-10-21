@@ -40,50 +40,50 @@
 - Employee `1 → 0..*` Transaction
 - Employee `1 → 0..*` Session
 
-## UML Diagram
-
+## UML Class Diagram
 ```mermaid
-erDiagram
-    EMPLOYEES ||--o{ TRANSACTIONS : performs
-    EMPLOYEES ||--o{ SESSIONS : has
-    CUSTOMERS ||--o{ ACCOUNTS : owns
-    ACCOUNTS ||--o{ TRANSACTIONS : contains
+classDiagram
 
-    EMPLOYEES {
-        bigint employee_id PK
-        varchar username
-        text password_hash
-        varchar role
-    }
+class Employee {
+    +BIGINT employee_id PK
+    +VARCHAR username
+    +TEXT password_hash
+    +VARCHAR role
+}
 
-    CUSTOMERS {
-        bigint customer_id PK
-        varchar first_name
-        varchar last_name
-        varchar ssn
-        varchar email
-    }
+class Customer {
+    +BIGINT customer_id PK
+    +VARCHAR first_name
+    +VARCHAR last_name
+    +VARCHAR ssn
+    +VARCHAR email
+}
 
-    ACCOUNTS {
-        bigint account_id PK
-        bigint customer_id FK
-        varchar account_number
-        numeric balance
-    }
+class Account {
+    +BIGINT account_id PK
+    +BIGINT customer_id FK
+    +VARCHAR account_number
+    +NUMERIC balance
+}
 
-    TRANSACTIONS {
-        bigint transaction_id PK
-        bigint account_id FK
-        bigint employee_id FK
-        numeric amount
-        timestamptz created_at
-    }
+class Transaction {
+    +BIGINT transaction_id PK
+    +BIGINT account_id FK
+    +BIGINT employee_id FK
+    +NUMERIC amount
+    +TIMESTAMPTZ created_at
+}
 
-    SESSIONS {
-        bigint session_id PK
-        bigint employee_id FK
-        text token_hash
-        timestamptz expires_at
-        timestamptz created_at
-    }
+class Session {
+    +BIGINT session_id PK
+    +BIGINT employee_id FK
+    +TEXT token_hash
+    +TIMESTAMPTZ expires_at
+    +TIMESTAMPTZ created_at
+}
+
+Customer "1" --> "0..*" Account : owns
+Account "1" --> "0..*" Transaction : has
+Employee "1" --> "0..*" Transaction : performs
+Employee "1" --> "0..*" Session : has
 ```
