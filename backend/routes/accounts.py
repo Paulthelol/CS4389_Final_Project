@@ -1,6 +1,5 @@
 from flask import Blueprint
-from database.connection import get_connection
-
+from database import get_connection
 
 accounts_bp = Blueprint(
     "accounts",

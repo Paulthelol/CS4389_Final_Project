@@ -59,3 +59,13 @@ npm --prefix frontend run dev
 
 Start Flask in a second terminal using the command above. See
 [`frontend/README.md`](frontend/README.md) for structure, build, lint, and proxy details.
+
+## Additional Notes
+- OS requirements
+- Programming language(s) used
+- Required software and dependencies
+- Installation instructions
+- Commands to execute the program
+- Login credentials for testing
+- Current incomplete features
+- : )
