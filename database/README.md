@@ -41,3 +41,49 @@
 - Employee `1 → 0..*` Session
 
 ## UML Diagram
+
+```mermaid
+erDiagram
+    EMPLOYEES ||--o{ TRANSACTIONS : performs
+    EMPLOYEES ||--o{ SESSIONS : has
+    CUSTOMERS ||--o{ ACCOUNTS : owns
+    ACCOUNTS ||--o{ TRANSACTIONS : contains
+
+    EMPLOYEES {
+        bigint employee_id PK
+        varchar username
+        text password_hash
+        varchar role
+    }
+
+    CUSTOMERS {
+        bigint customer_id PK
+        varchar first_name
+        varchar last_name
+        varchar ssn
+        varchar email
+    }
+
+    ACCOUNTS {
+        bigint account_id PK
+        bigint customer_id FK
+        varchar account_number
+        numeric balance
+    }
+
+    TRANSACTIONS {
+        bigint transaction_id PK
+        bigint account_id FK
+        bigint employee_id FK
+        numeric amount
+        timestamptz created_at
+    }
+
+    SESSIONS {
+        bigint session_id PK
+        bigint employee_id FK
+        text token_hash
+        timestamptz expires_at
+        timestamptz created_at
+    }
+```
