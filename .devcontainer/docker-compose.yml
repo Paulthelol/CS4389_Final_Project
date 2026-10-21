@@ -23,6 +23,8 @@ services:
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # mount database folder to docker-entrypoint-initdb.d to initialize the database with scripts
+      - ../database:/docker-entrypoint-initdb.d 
     env_file:
       - ../.env
 
