@@ -1,3 +1,4 @@
+import psycopg
 from flask import Blueprint, jsonify, request
 from database import get_connection
 
@@ -28,15 +29,19 @@ def create_employee():
     
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO Employee (employee_id, username, password_hash, role)
-                VALUES (%s, %s, %s, %s)
-                RETURNING employee_id, username, password_hash, role;
-                """,
-                (employee_id, username, password_hash, role)
-            )
-            employee = cur.fetchone()
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO employees (employee_id, username, password_hash, role)
+                    VALUES (%s, %s, %s, %s)
+                    RETURNING employee_id, username, password_hash, role;
+                    """,
+                    (employee_id, username, password_hash, role)
+                )
+                employee = cur.fetchone()
+            except psycopg.errors.UniqueViolation:
+                conn.rollback()
+                return jsonify({"error": "An employee with that ID already exists"}), 409
 
     return jsonify(employee_to_json(employee)), 201
 
@@ -49,7 +54,8 @@ def get_employees():
             cur.execute(
                 """
                 SELECT employee_id, username, password_hash, role
-                FROM Employee
+                FROM employees
+                ORDER BY employee_id;
                 """
             )
             employees = cur.fetchall()
@@ -66,7 +72,7 @@ def get_employee(employee_id):
             cur.execute(
                 """
                 SELECT employee_id, username, password_hash, role
-                FROM Employee
+                FROM employees
                 WHERE employee_id = %s;
                 """,
                 (employee_id,)
@@ -86,20 +92,24 @@ def update_employee(employee_id):
     username = data.get("username")
 
     if not username:
-        return jsonify({"error":"username is required"}), 400
+        return jsonify({"error": "username is required"}), 400
         
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE Employee
-                SET username = %s
-                WHERE employee_id = %s
-                RETURNING employee_id, username, password_hash, role;
-                """,
-                (username, employee_id)
-            )
-            employee = cur.fetchone()
+            try:
+                cur.execute(
+                    """
+                    UPDATE employees
+                    SET username = %s
+                    WHERE employee_id = %s
+                    RETURNING employee_id, username, password_hash, role;
+                    """,
+                    (username, employee_id)
+                )
+                employee = cur.fetchone()
+            except psycopg.errors.UniqueViolation:
+                conn.rollback()
+                jsonify({"error": "An employee with that ID already exists"}), 409
 
     if employee is None:
         return jsonify({"error": "Employee not found"}), 404
@@ -114,7 +124,7 @@ def delete_employee(employee_id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                DELETE FROM Employee
+                DELETE FROM employees
                 WHERE employee_id = %s
                 RETURNING employee_id;
                 """,
