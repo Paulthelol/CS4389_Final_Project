@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 
+import psycopg
 from flask import Blueprint, jsonify, request
 from database import get_connection
 
@@ -31,15 +32,19 @@ def create_account():
 
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO accounts (customer_id, account_number)
-                VALUES (%s, %s)
-                RETURNING account_id, customer_id, account_number, balance;
-                """,
-                (customer_id, account_number)
-            )
-            account = cur.fetchone()
+            try:
+                cur.execute(
+                    """
+                    INSERT INTO accounts (customer_id, account_number)
+                    VALUES (%s, %s)
+                    RETURNING account_id, customer_id, account_number, balance;
+                    """,
+                    (customer_id, account_number)
+                )
+                account = cur.fetchone()
+            except psycopg.errors.UniqueViolation:
+                conn.rollback()
+                return jsonify({"error": "An account with that account number already exists"}), 409
 
     return jsonify(account_to_json(account)), 201
 
