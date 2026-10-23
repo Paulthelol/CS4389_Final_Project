@@ -42,3 +42,14 @@ CREATE TABLE sessions (
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+--tellers can only access their own rows in employees table, admin can access all
+ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY admin_access ON employees
+    FOR ALL
+    USING (
+        current_setting('app.current_role', true) = 'admin'
+        OR employee_id = NULLIF(current_setting('app.current_employee_id', true),'')::bigint
+    );
+
