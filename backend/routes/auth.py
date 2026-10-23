@@ -34,7 +34,7 @@ def register():
 
     if len(password) < 8:
         return jsonify({
-            "error": "Password must be at least 12 characters"
+            "error": "Password must be at least 8 characters"
         }), 400
 
     if len(password.encode("utf-8")) > 1024:
