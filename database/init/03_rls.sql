@@ -1,13 +1,17 @@
 --tellers can only access their own rows in employees table, admin can access all
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY admin_access ON employees
+CREATE POLICY employee_access ON employees
     FOR ALL
     USING (
         current_setting('app.current_role', true) = 'admin'
-        OR employee_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
+        OR (
+            current_setting('app.current_role', true) = 'teller'
+            AND employee_id = NULLIF(
+                current_setting('app.current_employee_id', true), ''
+            )::bigint
+        )
     );
-
 
 --customers can only access their own data in customers table
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
