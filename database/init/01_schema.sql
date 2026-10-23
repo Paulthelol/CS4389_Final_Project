@@ -77,9 +77,16 @@ CREATE POLICY account_access ON accounts
 --customers can only access their own transactions
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY transactions_access ON transactions
-    FOR ALL
+CREATE POLICY transaction_access ON transactions
+    FOR SELECT
     USING (
-        current_setting('app.current_role', true) IN ('admin','teller')
-        OR customer_id = NULLIF(current_setting('app.current_customer_id', true))::bigint
+        current_setting('app.current_role', true) IN ('admin', 'teller')
+        OR EXISTS (
+            SELECT 1
+            FROM accounts
+            WHERE accounts.account_id = transactions.account_id
+              AND accounts.customer_id = NULLIF(
+                  current_setting('app.current_customer_id', true), ''
+              )::bigint
+        )
     );
