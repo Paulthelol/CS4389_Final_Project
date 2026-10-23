@@ -50,7 +50,7 @@ CREATE POLICY admin_access ON employees
     FOR ALL
     USING (
         current_setting('app.current_role', true) = 'admin'
-        OR employee_id = NULLIF(current_setting('app.current_employee_id', true),'')::bigint
+        OR employee_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
     );
 
 
@@ -61,7 +61,7 @@ CREATE POLICY customer_access ON customers
     FOR ALL
     USING (
         current_setting('app.current_role', true) IN ('admin','teller')
-        OR customer_id = NULLIF(current_setting('app.current_customer_id', true))::bigint
+        OR customer_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
     );
 
 --customers can only access their own accounts
@@ -71,8 +71,9 @@ CREATE POLICY account_access ON accounts
     FOR ALL
     USING (
         current_setting('app.current_role', true) IN ('admin','teller')
-        OR customer_id = NULLIF(current_setting('app.current_customer_id', true))::bigint
+        OR customer_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
     );
+
 --customers can only access their own transactions
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
