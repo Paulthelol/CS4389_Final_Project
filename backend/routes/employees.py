@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, jsonify, request
 from database import get_connection
 
 
@@ -31,8 +31,8 @@ def create_employee():
             cur.execute(
                 """
                 INSERT INTO Employee (employee_id, username, password_hash, role)
-                VALUES (%s %s %s %s)
-                RETURNING employee_id, username, role;
+                VALUES (%s, %s, %s, %s)
+                RETURNING employee_id, username, password_hash, role;
                 """,
                 (employee_id, username, password_hash, role)
             )
@@ -48,8 +48,8 @@ def get_employees():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT employee_id, username, role
-                FROM Employees
+                SELECT employee_id, username, password_hash, role
+                FROM Employee
                 """
             )
             employees = cur.fetchall()
@@ -65,11 +65,11 @@ def get_employee(employee_id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT employee_id, username, role
-                FROM Employees
+                SELECT employee_id, username, password_hash, role
+                FROM Employee
                 WHERE employee_id = %s;
                 """,
-                (employee_id)
+                (employee_id,)
             )
             employee = cur.fetchone()
 
@@ -95,7 +95,7 @@ def update_employee(employee_id):
                 UPDATE Employee
                 SET username = %s
                 WHERE employee_id = %s
-                RETURNING employee_id, username, role;
+                RETURNING employee_id, username, password_hash, role;
                 """,
                 (username, employee_id)
             )
