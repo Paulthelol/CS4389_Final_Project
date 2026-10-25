@@ -1,33 +1,58 @@
-version: '3.8'
-
 services:
+  # Development workspace for Flask and Vite; Node is added by devcontainer.json.
   app:
     build:
+      # Build paths are relative to this Compose file in .devcontainer/.
       context: ..
       dockerfile: .devcontainer/Dockerfile
-
     volumes:
-      - ../..:/workspaces:cached
-
-    # Overrides default command so things don't shut down after the process ends.
+      # Mount the repository at the workspaceFolder configured in devcontainer.json.
+      - ..:/workspaces/banking-app:cached
+      # Keep Linux npm dependencies separate from the host's node_modules.
+      - frontend-node-modules:/workspaces/banking-app/frontend/node_modules
+    # Keep the workspace running; start Flask and Vite from container terminals.
     command: sleep infinity
-
-    # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
+    # Share the database network namespace so PostgreSQL is reachable at localhost.
+    # Application ports are forwarded through devcontainer.json.
     network_mode: service:db
+    depends_on:
+      db:
+        # Wait until PostgreSQL accepts connections before starting the workspace.
+        condition: service_healthy
+    env_file:
+      # Load development defaults, then apply optional local overrides.
+      - ../.env.example
+      - path: ../.env
+        required: false
+    environment:
+      # These values take precedence over env_file for the shared network setup.
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      # Enable Vite file polling for Docker Desktop bind mounts on Windows.
+      VITE_USE_POLLING: "true"
 
-    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
-
+  # Local development database
   db:
     image: postgres:17
     restart: unless-stopped
     volumes:
+      # Preserve database contents when containers are rebuilt or recreated.
       - postgres-data:/var/lib/postgresql/data
+      # mount database/init folder to docker-entrypoint-initdb.d to initialize the database with scripts
+      - ../database/init:/docker-entrypoint-initdb.d:ro
     env_file:
-      - ../.env
+      # Use the same credentials as the app; .env is optional
+      - ../.env.example
+      - path: ../.env
+        required: false
+    healthcheck:
+      # Double dollar signs defer expansion to the container's shell.
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
-    # Add "forwardPorts": [5432] to **devcontainer.json** to forward PostgreSQL locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
-
+# Docker-managed storage persists independently of the repository bind mount.
 volumes:
   postgres-data:
+  frontend-node-modules:

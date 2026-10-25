@@ -1,20 +1,18 @@
 # Banking API Backend
 
-A Flask REST API backed by PostgreSQL for managing employees, customers, and accounts. This project is being developed as a learning project, with an emphasis on API design, database integration, and authentication.
+A RESTful banking API built with Python, Flask, and PostgreSQL. The project is developed inside a VS Code Dev Container using Docker Compose.
 
-## Technology Stack
+## Tech Stack
 
 - **Language:** Python
-- **Web framework:** Flask
+- **Framework:** Flask
 - **Database:** PostgreSQL 17
-- **Database driver:** Psycopg 3
-- **Password hashing:** Argon2
-- **Authentication:** Stateful sessions using opaque bearer tokens
-- **Development environment:** VS Code Dev Containers and Docker Compose
+- **Database Driver:** Psycopg 3
+- **Password Hashing:** Argon2
+- **Authentication:** Stateful sessions with opaque tokens
+- **Development Environment:** VS Code Dev Containers and Docker Compose
 
 ## Project Structure
-
-This README is located in `backend/`. The Dev Container configuration, environment files, and dependency list are stored at the project root.
 
 ```text
 project-root/
@@ -27,65 +25,91 @@ project-root/
 │   ├── database/
 │   │   ├── __init__.py
 │   │   └── connection.py
-│   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   ├── employees.py
-│   │   ├── customers.py
-│   │   └── accounts.py
-│   └── README.md
+│   └── routes/
+│       ├── __init__.py
+│       ├── auth.py
+│       ├── employees.py
+│       ├── customers.py
+│       └── accounts.py
 ├── .env
 ├── .env.example
-├── .gitignore
-└── requirements.txt
+├── requirements.txt
+└── README.md
 ```
 
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - [Visual Studio Code](https://code.visualstudio.com/)
-- The **Dev Containers** extension for VS Code
+- VS Code **Dev Containers** extension
 
-## Setup
+## Getting Started
 
-### 1. Configure environment variables
+### 1. Configure Environment Variables
 
-From the project root (the directory containing `backend/`), create a `.env` file. Use the root-level `.env.example` as a template:
+Create a `.env` file in the project root using `.env.example` as a template.
+
+Example:
 
 ```env
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=changeme
 POSTGRES_DB=appdb
+
 DB_HOST=localhost
 DB_PORT=5432
+
 SESSION_TTL_HOURS=#
 ```
 
-Replace placeholder values with your local development settings. Do not commit `.env` or real credentials to version control.
+Replace the example password with a secure local development password.
 
-### 2. Open the project in the Dev Container
+The `.env` file provides configuration to the PostgreSQL container through Docker Compose. Keep it out of version control; commit `.env.example` without real credentials.
 
-1. Open the project root folder in VS Code, not just the `backend/` subfolder.
-2. Open the Command Palette.
-3. Select **Dev Containers: Reopen in Container**.
-4. Wait for the application and PostgreSQL services to start and for Python dependencies to install.
+### 2. Open the Dev Container
 
-The Dev Container opens the project root as the workspace. Docker Compose mounts the parent directory into `/workspaces`, allowing the workspace path to use the local project folder's name.
+1. Open the project root in VS Code.
+2. Ensure Docker Desktop is running.
+3. Open the Command Palette with `Ctrl+Shift+P`.
+4. Select **Dev Containers: Reopen in Container**.
+5. Wait for the container to build and the Python dependencies to install.
 
-The application shares the database service's network namespace. Therefore, the application connects to PostgreSQL using `localhost` on port `5432`.
+The Dev Container configuration mounts the parent directory of the project into `/workspaces`. The workspace path uses `${localWorkspaceFolderBasename}`, allowing developers to use different local project folder names.
 
-### 3. Initialize the database
+The Python application runs in the `app` service, while PostgreSQL runs in the `db` service.
 
-Create the required PostgreSQL tables before using the API. The application expects these tables:
+### 3. Database Configuration
 
-- **employees** — employee usernames, password hashes, and roles (`teller` or `admin`).
-- **customers** — customer information.
-- **accounts** — accounts associated with customers, including account numbers and balances.
-- **sessions** — active session records, including employee associations, token hashes, and expiration timestamps.
+Docker Compose starts PostgreSQL 17 and persists database files in the named `postgres-data` volume.
 
-The database uses a named Docker volume (`postgres-data`) to persist PostgreSQL data across normal container restarts and recreation. Removing the volume will delete the stored database data.
+The application shares the database container's network namespace through `network_mode: service:db`. Therefore, the application connects to PostgreSQL using:
 
-### 4. Run the Flask application
+```env
+DB_HOST=localhost
+DB_PORT=5432
+```
+
+The `database/connection.py` module loads the environment configuration and provides a reusable `get_connection()` function for route handlers.
+
+### 4. Initialize the Database
+
+PostgreSQL automatically creates the database tables and loads initial data using SQL scripts in `database/init/` when the database is first initialized.
+
+The database is stored in a persistent Docker volume, so rebuilding the Dev Container does not rerun the initialization scripts.
+
+If the database schema or seed data changes, reset it from a host terminal in the project root:
+
+```bash
+./database/reset-db.sh
+```
+
+To verify the tables exist, run the following inside the Dev Container:
+
+```bash
+psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dt'
+```
+
+### 5. Run the Application
 
 From the project root inside the Dev Container:
 
@@ -93,80 +117,75 @@ From the project root inside the Dev Container:
 python backend/app.py
 ```
 
-Alternatively, if your terminal's current directory is `backend/`, run:
+Alternatively, if your terminal is already in `backend/`:
 
 ```bash
 python app.py
 ```
 
-The Flask development server should listen on `0.0.0.0:5000` so it can be accessed through the forwarded port. Use Flask's debug server for local development only.
+Configure Flask to listen on `0.0.0.0:5000` so VS Code can forward port `5000` to your local machine.
+
+The API should then be accessible at:
+
+```text
+http://localhost:5000
+```
 
 ## API Endpoints
 
-The authentication endpoints below are implemented. CRUD endpoints for employees, customers, and accounts are **in progress** and should not be considered complete until their route handlers and required checks have been implemented and tested.
+The following endpoints represent the planned API structure. Verify each route's implementation before relying on it.
 
-| Method | Endpoint | Status | Description |
+| Resource | Method | Endpoint | Purpose |
 |---|---|---|---|
-| `POST` | `/auth/register` | Implemented | Register an employee account with the default `teller` role. |
-| `POST` | `/auth/login` | Implemented | Verify credentials and create a session. |
-| `POST` | `/auth/logout` | Implemented | Delete the session associated with a supplied bearer token. |
-| `GET` | `/employees` | In progress | Retrieve employee records. |
-| `GET` | `/employees/<employee_id>` | In progress | Retrieve an employee by ID. |
-| `POST` | `/employees` | In progress | Create an employee record, subject to authorization rules. |
-| `PUT` / `PATCH` | `/employees/<employee_id>` | In progress | Update an employee record. |
-| `DELETE` | `/employees/<employee_id>` | In progress | Delete an employee record. |
-| `GET` | `/customers` | In progress | Retrieve customer records. |
-| `GET` | `/customers/<customer_id>` | In progress | Retrieve a customer by ID. |
-| `POST` | `/customers` | In progress | Create a customer record. |
-| `PUT` / `PATCH` | `/customers/<customer_id>` | In progress | Update a customer record. |
-| `DELETE` | `/customers/<customer_id>` | In progress | Delete a customer record. |
-| `GET` | `/accounts` | In progress | Retrieve account records. |
-| `GET` | `/accounts/<account_id>` | In progress | Retrieve an account by ID. |
-| `POST` | `/accounts` | In progress | Create an account associated with a customer. |
-| `PUT` / `PATCH` | `/accounts/<account_id>` | In progress | Update an account record. |
-| `DELETE` | `/accounts/<account_id>` | In progress | Delete an account record. |
-
-The CRUD paths above describe the intended API and may change during implementation. Route availability depends on the current code.
+| Authentication | POST | `/auth/register` | Register an employee account |
+| Authentication | POST | `/auth/login` | Authenticate an employee |
+| Authentication | POST | `/auth/logout` | Invalidate the current session |
+| Employees | GET | `/employees` | Retrieve employees |
+| Employees | GET | `/employees/<id>` | Retrieve an employee |
+| Employees | POST | `/employees` | Create an employee |
+| Employees | PUT/PATCH | `/employees/<id>` | Update an employee |
+| Employees | DELETE | `/employees/<id>` | Delete an employee |
+| Customers | GET | `/customers` | Retrieve customers |
+| Customers | GET | `/customers/<id>` | Retrieve a customer |
+| Customers | POST | `/customers` | Create a customer |
+| Customers | PUT/PATCH | `/customers/<id>` | Update a customer |
+| Customers | DELETE | `/customers/<id>` | Delete a customer |
+| Accounts | GET | `/accounts` | Retrieve accounts |
+| Accounts | GET | `/accounts/<id>` | Retrieve an account |
+| Accounts | POST | `/accounts` | Create an account |
+| Accounts | PUT/PATCH | `/accounts/<id>` | Update an account |
+| Accounts | DELETE | `/accounts/<id>` | Delete an account |
 
 ## Authentication Design
 
-The API uses stateful sessions rather than JWTs.
+The authentication system uses stateful sessions stored in PostgreSQL.
 
-- **Password storage:** Employee passwords are hashed with Argon2. Plaintext passwords should never be stored.
-- **Session tokens:** Login generates a cryptographically random opaque token. The raw token is returned to the client, while a SHA-256 hash of the token is stored in PostgreSQL.
-- **Session expiration:** The `SESSION_TTL_HOURS` environment variable controls the session lifetime.
-- **Logout:** The logout endpoint deletes the session matching the supplied bearer token. Repeating a logout request with a syntactically valid bearer token is designed to be idempotent.
+- Passwords are hashed with Argon2 rather than stored in plaintext or encrypted reversibly.
+- Successful login generates a cryptographically random session token.
+- Only a SHA-256 hash of the session token is stored in the database.
+- Sessions have an expiration time controlled by `SESSION_TTL_HOURS`.
+- Session records can be invalidated server-side, allowing sessions to be revoked.
 
-### Current authentication limitation
+Authenticated endpoints should validate session tokens and enforce employee roles and permissions before granting access.
 
-The shared authentication decorator and role-based authorization checks for protected resources have **not yet been implemented**. Although login creates sessions and logout deletes them, protected API resources do not yet consistently validate session tokens or enforce expiration and role permissions. Do not assume the planned CRUD endpoints are protected.
+## Development Notes
 
-## Development Status
+- Database connections are created through the shared `get_connection()` function.
+- Route modules are organized into Flask Blueprints.
+- The routes package automatically discovers eligible Blueprint objects from modules directly inside `backend/routes/`.
+- Docker Compose manages the application development environment and PostgreSQL service.
+- The named `postgres-data` volume persists database data across container restarts.
 
-### Implemented
+## Security Considerations
 
-- VS Code Dev Container configuration with Docker Compose.
-- PostgreSQL service and reusable database connection function.
-- Employee registration with password hashing.
-- Employee login and session creation.
-- Logout by deleting a session.
+This project is for development and learning purposes. Before deploying a banking application, implement and test appropriate protections, including:
 
-### In progress
+- HTTPS and secure secret management.
+- Authentication and role-based authorization.
+- Customer and account-level access controls.
+- Input validation and consistent error handling.
+- Protection against unauthorized balance changes and invalid transactions.
+- Session expiration, logout, and revocation.
+- Database backups, logging, monitoring, and automated tests.
 
-- CRUD operations for employees, customers, and accounts.
-- Shared authentication decorator for session validation.
-- Role-based authorization for protected endpoints.
-- Validation, error handling, and endpoint testing.
-
-## Security Notes
-
-This is a development and learning project, not a production banking system. Before using it with real users or sensitive information, additional work would be required, including:
-
-- Enforcing authentication and authorization on protected endpoints.
-- Using HTTPS in deployed environments and securely handling session tokens.
-- Adding request validation, rate limiting, and appropriate error handling.
-- Applying least-privilege database permissions.
-- Testing transaction integrity, access controls, and failure cases.
-- Establishing secure logging, backups, monitoring, and secret management.
-
-Keep `.env` out of version control and use placeholder values in `.env.example`. Do not use real credentials or customer information in development data.
+Never commit `.env` files, production credentials, or real customer information to version control.
