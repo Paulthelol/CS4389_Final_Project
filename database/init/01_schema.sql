@@ -11,7 +11,8 @@ CREATE TABLE customers (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     ssn VARCHAR(11) NOT NULL UNIQUE,
-    email VARCHAR(255) UNIQUE
+    email VARCHAR(255) UNIQUE,
+    password_hash TEXT  -- setup upon customer registration
 );
 
 CREATE TABLE accounts (
@@ -21,6 +22,8 @@ CREATE TABLE accounts (
     account_number VARCHAR(20) NOT NULL UNIQUE,
     balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00
 );
+
+Create INDEX idx_accounts_customer_id ON accounts(customer_id);
 
 CREATE TABLE transactions (
     transaction_id BIGSERIAL PRIMARY KEY,
@@ -33,12 +36,36 @@ CREATE TABLE transactions (
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE INDEX idx_transactions_account_id ON transactions(account_id);
+
 CREATE TABLE sessions (
     session_id BIGSERIAL PRIMARY KEY,
-    employee_id BIGINT NOT NULL
+    employee_id BIGINT
         REFERENCES employees(employee_id)
         ON DELETE CASCADE,
-    token_hash TEXT NOT NULL UNIQUE,
+    customer_id BIGINT
+        REFERENCES customers(customer_id)
+        ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT one_owner
+        CHECK (
+            (employee_id IS NOT NULL AND customer_id IS NULL)
+            OR
+            (employee_id IS NULL AND customer_id IS NOT NULL)
+        )
+);
+
+CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
+
+CREATE TABLE customer_setup_tokens (
+    setup_token_id BIGSERIAL PRIMARY KEY,
+    customer_id BIGINT NOT NULL
+        REFERENCES customers(customer_id) ON DELETE CASCADE,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

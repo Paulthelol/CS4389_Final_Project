@@ -17,7 +17,7 @@ password_hasher = PasswordHasher()
 
 # EMPLOYEE REGISTER
 @auth_bp.route("/employees/register", methods=["POST"])
-def register():
+def employee_register():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "A JSON object is required"}), 400
@@ -69,7 +69,7 @@ def register():
 
 # EMPLOYEE LOGIN
 @auth_bp.route("/employees/login", methods=["POST"])
-def login():
+def employee_login():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "A JSON object is required"}), 400
@@ -328,45 +328,3 @@ def logout():
             )
 
     return jsonify({"message": "Logout successful"}), 200
-
-
-#TODO: Add sessions table to database schema
-"""
-CREATE TABLE sessions (
-    session_id BIGSERIAL PRIMARY KEY,
-    employee_id BIGINT
-        REFERENCES employees(employee_id)
-        ON DELETE CASCADE,
-    customer_id BIGINT
-        REFERENCES customers(customer_id)
-        ON DELETE CASCADE,
-
-    token_hash CHAR(64) NOT NULL UNIQUE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT one_owner
-        CHECK (
-            (employee_id IS NOT NULL AND customer_id IS NULL)
-            OR
-            (employee_id IS NULL AND customer_id IS NOT NULL)
-        )
-);
-"""
-
-"""
-CREATE INDEX idx_sessions_expires_at
-ON sessions(expires_at);
-"""
-
-"""
-CREATE TABLE customer_setup_tokens (
-    setup_token_id BIGSERIAL PRIMARY KEY,
-    customer_id BIGINT NOT NULL
-        REFERENCES customers(customer_id) ON DELETE CASCADE,
-    token_hash CHAR(64) NOT NULL UNIQUE,
-    expires_at TIMESTAMPTZ NOT NULL,
-    used_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-"""
