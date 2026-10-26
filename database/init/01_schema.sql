@@ -1,15 +1,26 @@
-CREATE TABLE employees (
-    employee_id BIGSERIAL PRIMARY KEY,
+CREATE TABLE users (
+    user_id BIGSERIAL PRIMARY KEY,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     role VARCHAR(20) NOT NULL
-        CHECK (role IN ('teller', 'admin'))
+        CHECK (role IN ('customer', 'teller', 'admin'))
+);
+
+CREATE TABLE employees (
+    employee_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL UNIQUE
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
+    hire_date DATE NOT NULL
 );
 
 CREATE TABLE customers (
     customer_id BIGSERIAL PRIMARY KEY,
-    first_name VARCHAR(100) NOT NULL,
-    last_name VARCHAR(100) NOT NULL,
+    user_id BIGINT NOT NULL UNIQUE
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
     ssn VARCHAR(11) NOT NULL UNIQUE,
     email VARCHAR(255) UNIQUE
 );
@@ -26,8 +37,8 @@ CREATE TABLE transactions (
     transaction_id BIGSERIAL PRIMARY KEY,
     account_id BIGINT NOT NULL
         REFERENCES accounts(account_id),
-    employee_id BIGINT NOT NULL
-        REFERENCES employees(employee_id),
+    user_id BIGINT NOT NULL         -- the user who performed the transaction
+        REFERENCES users(user_id),
     amount NUMERIC(12, 2) NOT NULL  -- max of 9999999999.99 ($10 billion)
         CHECK (amount <> 0),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -35,8 +46,8 @@ CREATE TABLE transactions (
 
 CREATE TABLE sessions (
     session_id BIGSERIAL PRIMARY KEY,
-    employee_id BIGINT NOT NULL
-        REFERENCES employees(employee_id)
+    user_id BIGINT NOT NULL
+        REFERENCES users(user_id)
         ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
     expires_at TIMESTAMPTZ NOT NULL,
