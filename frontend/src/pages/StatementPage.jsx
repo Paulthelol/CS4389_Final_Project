@@ -1,4 +1,4 @@
-export default function AccountStatementPage({ onNavigate }) {
+export default function StatementPage({ onNavigate }) {
   return (
     <>
       <h1>Account Statement</h1>

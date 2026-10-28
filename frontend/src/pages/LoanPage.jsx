@@ -1,4 +1,4 @@
-export default function OtherPage({ onNavigate }) {
+export default function LoanPage({ onNavigate }) {
   return (
     <>
       <h1>Work in Progress</h1>

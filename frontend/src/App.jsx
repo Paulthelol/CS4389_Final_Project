@@ -2,18 +2,26 @@ import { useEffect, useState } from 'react';
 import CustomerLoginPage from './pages/CustomerLoginPage.jsx';
 import TellerLoginPage from './pages/TellerLoginPage.jsx';
 import HomePage from './pages/HomePage.jsx';
-import CreditScorePage from './pages/CreditScorePage.jsx';
-import AccountStatementPage from './pages/AccountStatementPage.jsx';
-import OtherPage from './pages/OtherPage.jsx';
+import TellerHomePage from './pages/TellerHomePage.jsx';
+import BalancePage from './pages/BalancePage.jsx';
+import TellerBalancePage from './pages/TellerBalancePage.jsx';
+import StatementPage from './pages/StatementPage.jsx';
+import TellerStatementPage from './pages/TellerStatementPage.jsx';
+import UserLoanPage from './pages/LoanPage.jsx';
+import TellerLoanPage from './pages/LoanPage.jsx';
 
 // Each route has its own page skeleton; layout and markup live in src/pages/.
 const routes = {
   '/customerLogin': CustomerLoginPage,
   '/tellerLogin': TellerLoginPage,
   '/': HomePage,
-  '/credit': CreditScorePage,
-  '/statement': AccountStatementPage,
-  '/other': OtherPage,
+  '/tellerHome': TellerHomePage,
+  '/balance': BalancePage,
+  '/tellerBalances': TellerBalancePage,
+  '/statement': StatementPage,
+  '/tellerStatements': TellerStatementPage,
+  '/userLoans': UserLoanPage,
+  '/tellerLoans': TellerLoanPage,
 };
 
 export default function App() {
@@ -57,11 +65,29 @@ export default function App() {
 
     // TODO: Replace temporary frontend client auth with backend authentication.
     if (
-      username === 'Admin' && password === 'cPassword123' &&
+      username === 'Customer' && password === 'cPassword123' &&
       (!employee || fields.get('employeeId') === '00')
     ) {
       setUser(username);
       navigate('/');
+    } else {
+      setLoginResult('Login failed due to incorrect login credentials');
+    }
+    if (
+      username === 'Teller' && password === 'tPassword123' &&
+      (!employee || fields.get('employeeId') === '01')
+    ) {
+      setUser(username);
+      navigate('/tellerHome');
+    } else {
+      setLoginResult('Login failed due to incorrect login credentials');
+    }
+    if (
+      username === 'Admin' && password === 'aPassword123' &&
+      (!employee || fields.get('employeeId') === '00')
+    ) {
+      setUser(username);
+      navigate('/tellerHome');
     } else {
       setLoginResult('Login failed due to incorrect login credentials');
     }
