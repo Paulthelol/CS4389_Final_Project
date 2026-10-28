@@ -20,7 +20,8 @@ export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [user, setUser] = useState('');
   const [loginResult, setLoginResult] = useState('');
-  const isLoginPage = path === '/customerLogin' || path === '/tellerLogin';
+  const isLoginPage = path === '/customerLogin';
+  const isTellerLogin = path === '/tellerLogin';
   const activePath = !user && !isLoginPage ? '/customerLogin' : path;
 
   useEffect(() => {
