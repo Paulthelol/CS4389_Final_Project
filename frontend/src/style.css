@@ -51,13 +51,18 @@
 }
 
 table {
-  color: var(--shadow);
-  background: var(--text);
+  color: #000000;
+  background: #c084fc;
   border: 1px solid #aa3bff;
   border-collapse: collapse;
   width: 100%;
 }
 
+td,th {
+  border: 1px solid #36005f;
+  padding: 4px;
+  text-align: center;
+}
 
 body {
   background-color: rgba(255, 136, 112, 0.5);

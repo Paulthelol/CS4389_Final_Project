@@ -7,7 +7,7 @@ import BalancePage from './pages/BalancePage.jsx';
 import TellerBalancePage from './pages/TellerBalancePage.jsx';
 import StatementPage from './pages/StatementPage.jsx';
 import TellerStatementPage from './pages/TellerStatementPage.jsx';
-import UserLoanPage from './pages/LoanPage.jsx';
+import LoanPage from './pages/LoanPage.jsx';
 import TellerLoanPage from './pages/LoanPage.jsx';
 
 // Each route has its own page skeleton; layout and markup live in src/pages/.
@@ -20,7 +20,7 @@ const routes = {
   '/tellerBalances': TellerBalancePage,
   '/statement': StatementPage,
   '/tellerStatements': TellerStatementPage,
-  '/userLoans': UserLoanPage,
+  '/userLoans': LoanPage,
   '/tellerLoans': TellerLoanPage,
 };
 
