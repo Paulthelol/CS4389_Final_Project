@@ -163,6 +163,8 @@ def customer_register():
     email = email.strip().lower()
     if not email or not setup_token or not password:
         return jsonify({"error": "Email, setup token, and password are required"}), 400
+    if len(email) > 255:
+        return jsonify({"error": "Email is too long"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
     if len(password.encode("utf-8")) > 1024:
@@ -238,6 +240,8 @@ def customer_login():
     email = email.strip().lower()
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
+    if len(password.encode("utf-8")) > 1024:
+        return jsonify({"error": "Password is too long"}), 400
 
     # Look up an existing customer by email.
     with get_connection() as conn:

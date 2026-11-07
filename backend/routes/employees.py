@@ -122,7 +122,7 @@ def update_employee(employee_id):
                 employee = cur.fetchone()
             except psycopg.errors.UniqueViolation:
                 conn.rollback()
-                return jsonify({"error": "An employee with that ID already exists"}), 409
+                return jsonify({"error": "An employee with that username already exists"}), 409
 
     if employee is None:
         return jsonify({"error": "Employee not found"}), 404
