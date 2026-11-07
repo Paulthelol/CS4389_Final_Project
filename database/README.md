@@ -23,7 +23,8 @@
 #### transactions
 - `transaction_id`
 - `account_id`
-- `employee_id`
+- `customer_id` — set for customer-initiated transactions
+- `employee_id` — set for employee-initiated transactions
 - `amount` — positive for deposits, negative for withdrawals
 - `created_at`
 
@@ -65,6 +66,7 @@ only by PostgreSQL initialization; backend uses `APP_DB_USER` and `APP_DB_PASSWO
 
 - Customer `1 → 0..*` Account
 - Account `1 → 0..*` Transaction
+- Customer `1 → 0..*` Transaction
 - Employee `1 → 0..*` Transaction
 - Employee `1 → 0..*` Session
 - Customer `1 → 0..*` Session
@@ -100,6 +102,7 @@ class Account {
 class Transaction {
     +BIGINT transaction_id PK
     +BIGINT account_id FK
+    +BIGINT customer_id FK
     +BIGINT employee_id FK
     +NUMERIC amount
     +TIMESTAMPTZ created_at
@@ -125,6 +128,7 @@ class CustomerSetupToken {
 
 Customer "1" --> "0..*" Account : owns
 Account "1" --> "0..*" Transaction : has
+Customer "1" --> "0..*" Transaction : initiates
 Employee "1" --> "0..*" Transaction : performs
 Employee "1" --> "0..*" Session : has
 Customer "1" --> "0..*" Session : has
