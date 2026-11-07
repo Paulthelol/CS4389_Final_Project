@@ -57,6 +57,10 @@ Customers can access only their own customer row, accounts, and transactions.
 Employees can access their own employee row, while admins can access all
 employee rows.
 
+The database initializes a separate `banking_app` login role for the backend.
+It is not a superuser and does not bypass RLS. `POSTGRES_*` credentials are used
+only by PostgreSQL initialization; backend uses `APP_DB_USER` and `APP_DB_PASSWORD`.
+
 ## Relationships
 
 - Customer `1 → 0..*` Account
