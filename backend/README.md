@@ -56,6 +56,9 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=changeme
 POSTGRES_DB=appdb
 
+APP_DB_USER=banking_app
+APP_DB_PASSWORD=changemetoo
+
 DB_HOST=localhost
 DB_PORT=5432
 
