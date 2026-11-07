@@ -38,6 +38,8 @@ services:
     volumes:
       # Preserve database contents when containers are rebuilt or recreated.
       - postgres-data:/var/lib/postgresql/data
+      # mount database/init folder to docker-entrypoint-initdb.d to initialize the database with scripts
+      - ../database/init:/docker-entrypoint-initdb.d:ro
     env_file:
       # Use the same credentials as the app; .env is optional
       - ../.env.example
