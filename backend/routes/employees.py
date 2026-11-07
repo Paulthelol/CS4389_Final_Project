@@ -1,6 +1,5 @@
 import psycopg
-from flask import Blueprint, g, jsonify, request
-from database import get_connection
+from flask import Blueprint, jsonify, request
 
 from database import get_connection
 from decorators import token_required, employee_required, role_required
