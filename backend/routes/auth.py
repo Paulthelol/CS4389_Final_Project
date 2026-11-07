@@ -30,7 +30,7 @@ def employee_register():
         return jsonify({"error": "Username and password are required"}), 400
 
     username = username.strip()
-    if not username or len(username) > 30:
+    if not username or len(username) > 50:
         return jsonify({"error": "Invalid username"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
@@ -114,11 +114,7 @@ def employee_login():
             cur.execute(
                 """
                 INSERT INTO sessions (employee_id, token_hash, expires_at)
-                VALUES (
-                    %s,
-                    %s,
-                    NOW() + (%s * INTERVAL '1 hour')
-                )
+                VALUES (%s, %s, NOW() + (%s * INTERVAL '1 hour'))
                 RETURNING expires_at;
                 """,
                 (employee[0], token_hash, session_hours)
@@ -186,10 +182,10 @@ def customer_register():
                 JOIN customers AS c
                     ON c.customer_id = t.customer_id
                 WHERE LOWER(c.email) = %s
-                  AND t.token_hash = %s
-                  AND t.expires_at > NOW()
-                  AND t.used_at IS NULL
-                  AND c.password_hash IS NULL
+                    AND t.token_hash = %s
+                    AND t.expires_at > NOW()
+                    AND t.used_at IS NULL
+                    AND c.password_hash IS NULL
                 FOR UPDATE OF t, c;
                 """,
                 (email, token_hash)
@@ -207,7 +203,7 @@ def customer_register():
                 UPDATE customers
                 SET password_hash = %s
                 WHERE customer_id = %s
-                  AND password_hash IS NULL;
+                    AND password_hash IS NULL;
                 """,
                 (password_hash, customer_id)
             )
@@ -276,16 +272,8 @@ def customer_login():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO sessions (
-                    customer_id,
-                    token_hash,
-                    expires_at
-                )
-                VALUES (
-                    %s,
-                    %s,
-                    NOW() + (%s * INTERVAL '1 hour')
-                )
+                INSERT INTO sessions (customer_id, token_hash, expires_at)
+                VALUES (%s, %s, NOW() + (%s * INTERVAL '1 hour'))
                 RETURNING expires_at;
                 """,
                 (customer[0], token_hash, session_hours)
