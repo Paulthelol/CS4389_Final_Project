@@ -1,8 +1,9 @@
-from decimal import Decimal, InvalidOperation
-
 import psycopg
-from flask import Blueprint, jsonify, request
+from decimal import Decimal, InvalidOperation
+from flask import Blueprint, g, jsonify, request
+
 from database import get_connection
+from decorators import token_required, employee_required
 
 accounts_bp = Blueprint(
     "accounts",
@@ -20,8 +21,9 @@ def account_to_json(row):
     }
 
 
-# CREATE account
+# CREATE account (employees only; generate a setup token for customer password registration)
 @accounts_bp.route("", methods=["POST"])
+@employee_required
 def create_account():
     data = request.get_json(silent=True) or {}
     customer_id = data.get("customer_id")
@@ -51,6 +53,7 @@ def create_account():
 
 # READ all accounts
 @accounts_bp.route("", methods=["GET"])
+@employee_required
 def get_accounts():
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -68,16 +71,20 @@ def get_accounts():
 
 # READ one account
 @accounts_bp.route("/<int:account_id>", methods=["GET"])
+@token_required
 def get_account(account_id):
+    user = g.current_user
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT account_id, customer_id, account_number, balance
                 FROM accounts
-                WHERE account_id = %s;
+                WHERE account_id = %s
+                    AND (%s = 'employee' OR customer_id = %s);
                 """,
-                (account_id,)
+                (account_id, user["type"], user["id"])
             )
             account = cur.fetchone()
 
@@ -87,8 +94,9 @@ def get_account(account_id):
     return jsonify(account_to_json(account)), 200
 
 
-# UPDATE account (only the owner can change; balance changes go through deposit/withdraw)
+# UPDATE account (employees only; balance changes go through deposit/withdraw)
 @accounts_bp.route("/<int:account_id>", methods=["PUT"])
+@employee_required
 def update_account(account_id):
     data = request.get_json(silent=True) or {}
     customer_id = data.get("customer_id")
@@ -117,11 +125,16 @@ def update_account(account_id):
 
 # DELETE account
 @accounts_bp.route("/<int:account_id>", methods=["DELETE"])
+@employee_required
 def delete_account(account_id):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "DELETE FROM accounts WHERE account_id = %s RETURNING account_id;",
+                """
+                DELETE FROM accounts 
+                WHERE account_id = %s 
+                RETURNING account_id;
+                """,
                 (account_id,)
             )
             deleted = cur.fetchone()
@@ -145,7 +158,9 @@ def parse_amount(value):
 
 # DEPOSIT
 @accounts_bp.route("/<int:account_id>/deposit", methods=["POST"])
+@token_required
 def deposit(account_id):
+    user = g.current_user
     data = request.get_json(silent=True) or {}
     amount = parse_amount(data.get("amount"))
 
@@ -158,10 +173,10 @@ def deposit(account_id):
                 """
                 UPDATE accounts
                 SET balance = balance + %s
-                WHERE account_id = %s
+                WHERE account_id = %s AND customer_id = %s
                 RETURNING account_id, customer_id, account_number, balance;
                 """,
-                (amount, account_id)
+                (amount, account_id, user["id"])
             )
             account = cur.fetchone()
 
@@ -173,7 +188,9 @@ def deposit(account_id):
 
 # WITHDRAW
 @accounts_bp.route("/<int:account_id>/withdraw", methods=["POST"])
+@token_required
 def withdraw(account_id):
+    user = g.current_user
     data = request.get_json(silent=True) or {}
     amount = parse_amount(data.get("amount"))
 
@@ -187,15 +204,21 @@ def withdraw(account_id):
                 """
                 UPDATE accounts
                 SET balance = balance - %s
-                WHERE account_id = %s AND balance >= %s
+                WHERE account_id = %s AND customer_id = %s AND balance >= %s
                 RETURNING account_id, customer_id, account_number, balance;
                 """,
-                (amount, account_id, amount)
+                (amount, account_id, user["id"], amount)
             )
             account = cur.fetchone()
 
             if account is None:
-                cur.execute("SELECT 1 FROM accounts WHERE account_id = %s;", (account_id,))
+                cur.execute(
+                    """
+                    SELECT 1 FROM accounts 
+                    WHERE account_id = %s AND customer_id = %s;
+                    """, 
+                    (account_id, user["id"])
+                )
                 if cur.fetchone() is None:
                     return jsonify({"error": "Account not found"}), 404
                 return jsonify({"error": "Insufficient funds"}), 400

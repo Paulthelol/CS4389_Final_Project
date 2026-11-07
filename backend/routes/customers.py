@@ -1,7 +1,9 @@
 import psycopg
-from flask import Blueprint, jsonify, request
+import re
+from flask import Blueprint, g, jsonify, request
 
 from database import get_connection
+from decorators import token_required, employee_required
 
 
 customers_bp = Blueprint(
@@ -17,7 +19,7 @@ def customer_to_json(row):
         "customer_id": row[0],
         "first_name": row[1],
         "last_name": row[2],
-        "ssn": row[3],
+        "ssn": "***-**-" + row[3][-4:],
         "email": row[4],
     }
 
@@ -51,11 +53,19 @@ def validate_customer_data(data, *, partial=False):
             return None, f"{field} must be a non-empty string"
 
         value = value.strip()
-        max_length = 255 if field == "email" else 100
-        if field == "ssn":
-            max_length = 11
-        if len(value) > max_length:
-            return None, f"{field} is too long"
+        if field in ("first_name", "last_name"):
+            if len(value) > 100:
+                return None, f"{field} is too long"
+
+        elif field == "ssn":
+            if not re.fullmatch(r"\d{3}-\d{2}-\d{4}", value):
+                return None, "ssn must use the format XXX-XX-XXXX"
+
+        elif field == "email":
+            if len(value) > 255:
+                return None, "email is too long"
+            value = value.lower()
+            
         values[field] = value
 
     return values, None
@@ -63,6 +73,7 @@ def validate_customer_data(data, *, partial=False):
 
 # CREATE customer
 @customers_bp.route("", methods=["POST"])
+@employee_required
 def create_customer():
     data, error = validate_customer_data(request.get_json(silent=True) or {})
     if error:
@@ -89,6 +100,7 @@ def create_customer():
 
 # READ all customers
 @customers_bp.route("", methods=["GET"])
+@employee_required
 def get_customers():
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -106,16 +118,20 @@ def get_customers():
 
 # READ one customer
 @customers_bp.route("/<int:customer_id>", methods=["GET"])
+@token_required
 def get_customer(customer_id):
+    user = g.current_user
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT customer_id, first_name, last_name, ssn, email
                 FROM customers
-                WHERE customer_id = %s;
+                WHERE customer_id = %s
+                    AND (%s = 'employee' OR customer_id = %s);
                 """,
-                (customer_id,),
+                (customer_id, user["type"], user["id"]),
             )
             customer = cur.fetchone()
 
@@ -127,10 +143,14 @@ def get_customer(customer_id):
 
 # UPDATE customer
 @customers_bp.route("/<int:customer_id>", methods=["PUT", "PATCH"])
+@token_required
 def update_customer(customer_id):
-    data, error = validate_customer_data(
-        request.get_json(silent=True) or {}, partial=True
-    )
+    user = g.current_user
+    # Customers can only update their own information.
+    if user["type"] == "customer" and user["id"] != customer_id:
+        return jsonify({"error": "Customer not found"}), 404
+
+    data, error = validate_customer_data(request.get_json(silent=True) or {}, partial=True)
     if error:
         return jsonify({"error": error}), 400
 
@@ -164,14 +184,26 @@ def update_customer(customer_id):
 
 # DELETE customer
 @customers_bp.route("/<int:customer_id>", methods=["DELETE"])
+@token_required
 def delete_customer(customer_id):
+    user = g.current_user
+
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM customers WHERE customer_id = %s RETURNING customer_id;",
-                (customer_id,),
-            )
-            deleted = cur.fetchone()
+            try:
+                cur.execute(
+                    """
+                    DELETE FROM customers 
+                    WHERE customer_id = %s
+                        AND (%s = 'employee' OR customer_id = %s) 
+                    RETURNING customer_id;
+                    """,
+                    (customer_id, user["type"], user["id"]),
+                )
+                deleted = cur.fetchone()
+            except psycopg.errors.ForeignKeyViolation:
+                conn.rollback()
+                return jsonify({"error": "Customer cannot be deleted while associated accounts exist"}), 409
 
     if deleted is None:
         return jsonify({"error": "Customer not found"}), 404
