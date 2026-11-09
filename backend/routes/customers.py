@@ -1,5 +1,8 @@
-import psycopg
+import hashlib
+import secrets
 import re
+
+import psycopg
 from flask import Blueprint, g, jsonify, request
 
 from database import get_connection
@@ -71,31 +74,63 @@ def validate_customer_data(data, *, partial=False):
     return values, None
 
 
-# CREATE customer
+# CREATE customer (employees only; generate a setup token for customer password registration)
 @customers_bp.route("", methods=["POST"])
 @employee_required
 def create_customer():
-    data, error = validate_customer_data(request.get_json(silent=True) or {})
+    data = request.get_json(silent=True)
+    values, error = validate_customer_data(data)
     if error:
         return jsonify({"error": error}), 400
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
+    # Email is required because customer registration uses it
+    # to identify the customer associated with the setup token
+    if not values.get("email"):
+        return jsonify({"error": "email is required"}), 400
+
+    # Generate a random, one-time registration token.
+    # Store only the token hash in the database.
+    setup_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(setup_token.encode("utf-8")).hexdigest()
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                # Create the customer record
                 cur.execute(
                     """
                     INSERT INTO customers (first_name, last_name, ssn, email)
                     VALUES (%s, %s, %s, %s)
                     RETURNING customer_id, first_name, last_name, ssn, email;
                     """,
-                    (data["first_name"], data["last_name"], data["ssn"], data.get("email")),
+                    (values["first_name"], values["last_name"], values["ssn"], values["email"])
                 )
-                customer = cur.fetchone()
-            except psycopg.errors.UniqueViolation:
-                conn.rollback()
-                return jsonify({"error": "A customer with that SSN or email already exists"}), 409
 
-    return jsonify(customer_to_json(customer)), 201
+                customer = cur.fetchone()
+
+                # Store the hashed setup token with a 24-hour expiration
+                cur.execute(
+                    """
+                    INSERT INTO customer_setup_tokens (customer_id, token_hash, expires_at)
+                    VALUES ( %s, %s, NOW() + INTERVAL '24 hours' )
+                    RETURNING expires_at;
+                    """,
+                    (customer[0], token_hash)
+                )
+
+                expires_at = cur.fetchone()[0]
+
+    except psycopg.errors.UniqueViolation:
+        return jsonify({"error": "A customer with that SSN or email already exists"}), 409
+
+    # Return the original token so the employee can provide it to the customer.
+    # It cannot be retrieved again.
+    return jsonify({
+        "message": "Customer created successfully",
+        "customer": customer_to_json(customer),
+        "setup_token": setup_token,
+        "expires_at": expires_at.isoformat()
+    }), 201
 
 
 # READ all customers
@@ -143,14 +178,9 @@ def get_customer(customer_id):
 
 # UPDATE customer
 @customers_bp.route("/<int:customer_id>", methods=["PUT", "PATCH"])
-@token_required
+@employee_required
 def update_customer(customer_id):
-    user = g.current_user
-    # Customers can only update their own information.
-    if user["type"] == "customer" and user["id"] != customer_id:
-        return jsonify({"error": "Customer not found"}), 404
-
-    data, error = validate_customer_data(request.get_json(silent=True) or {}, partial=True)
+    data, error = validate_customer_data(request.get_json(silent=True), partial=True)
     if error:
         return jsonify({"error": error}), 400
 
@@ -159,9 +189,9 @@ def update_customer(customer_id):
     values = [data[column] for column in columns]
     values.append(customer_id)
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
                 cur.execute(
                     f"""
                     UPDATE customers
@@ -171,10 +201,11 @@ def update_customer(customer_id):
                     """,
                     values,
                 )
+
                 customer = cur.fetchone()
-            except psycopg.errors.UniqueViolation:
-                conn.rollback()
-                return jsonify({"error": "A customer with that SSN or email already exists"}), 409
+
+    except psycopg.errors.UniqueViolation:
+        return jsonify({"error": "A customer with that SSN or email already exists"}), 409
 
     if customer is None:
         return jsonify({"error": "Customer not found"}), 404
@@ -188,9 +219,9 @@ def update_customer(customer_id):
 def delete_customer(customer_id):
     user = g.current_user
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
                 cur.execute(
                     """
                     DELETE FROM customers 
@@ -200,10 +231,11 @@ def delete_customer(customer_id):
                     """,
                     (customer_id, user["type"], user["id"]),
                 )
+
                 deleted = cur.fetchone()
-            except psycopg.errors.ForeignKeyViolation:
-                conn.rollback()
-                return jsonify({"error": "Customer cannot be deleted while associated accounts exist"}), 409
+
+    except psycopg.errors.ForeignKeyViolation:
+        return jsonify({"error": "Customer cannot be deleted while associated accounts exist"}), 409
 
     if deleted is None:
         return jsonify({"error": "Customer not found"}), 404

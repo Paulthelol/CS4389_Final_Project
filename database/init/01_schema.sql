@@ -69,3 +69,19 @@ CREATE TABLE customer_setup_tokens (
     used_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE INDEX idx_customer_setup_tokens_expires_at
+    ON customer_setup_tokens(expires_at);
+
+CREATE TABLE employee_setup_tokens (
+    setup_token_id BIGSERIAL PRIMARY KEY,
+    role VARCHAR(20) NOT NULL
+        CHECK (role IN ('teller', 'admin')),
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_employee_setup_tokens_expires_at
+    ON employee_setup_tokens(expires_at);
