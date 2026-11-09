@@ -93,16 +93,21 @@ The `database/connection.py` module loads the environment configuration and prov
 
 ### 4. Initialize the Database
 
-Initialize the PostgreSQL database with the tables required by the application.
+PostgreSQL automatically creates the database tables and loads initial data using SQL scripts in `database/init/` when the database is first initialized.
 
-The database schema includes:
+The database is stored in a persistent Docker volume, so rebuilding the Dev Container does not rerun the initialization scripts.
 
-- **`employees`** — employee credentials and roles (`teller` or `admin`).
-- **`customers`** — customer information.
-- **`accounts`** — customer-linked accounts and balances.
-- **`sessions`** — active session records, token hashes, and expiration timestamps.
+If the database schema or seed data changes, reset it from a host terminal in the project root:
 
-Ensure all required tables exist before testing the corresponding API endpoints.
+```bash
+./database/reset-db.sh
+```
+
+To verify the tables exist, run the following inside the Dev Container:
+
+```bash
+psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dt'
+```
 
 ### 5. Run the Application
 
