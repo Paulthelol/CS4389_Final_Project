@@ -13,39 +13,52 @@ CREATE POLICY employee_access ON employees
         )
     );
 
---customers can only access their own data in customers table
+-- Customers can access their own profile; tellers and administrators can access all customers.
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY customer_access ON customers 
+CREATE POLICY customer_access ON customers
     FOR ALL
     USING (
-        current_setting('app.current_role', true) IN ('admin','teller')
-        OR customer_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
+        current_setting('app.current_role', true) IN ('admin', 'teller')
+        OR (
+            current_setting('app.current_role', true) = 'customer'
+            AND customer_id = NULLIF(
+                current_setting('app.current_customer_id', true), ''
+            )::bigint
+        )
     );
 
---customers can only access their own accounts
+-- Customers can access only their own accounts; tellers and administrators can access all accounts.
 ALTER TABLE accounts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY account_access ON accounts
     FOR ALL
     USING (
-        current_setting('app.current_role', true) IN ('admin','teller')
-        OR customer_id = NULLIF(current_setting('app.current_customer_id', true), '')::bigint
+        current_setting('app.current_role', true) IN ('admin', 'teller')
+        OR (
+            current_setting('app.current_role', true) = 'customer'
+            AND customer_id = NULLIF(
+                current_setting('app.current_customer_id', true), ''
+            )::bigint
+        )
     );
 
---customers can only access their own transactions
+-- Customers can only access their own transactions; tellers and administrators can access all transactions.
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY transaction_access ON transactions
     FOR ALL
     USING (
         current_setting('app.current_role', true) IN ('admin', 'teller')
-        OR EXISTS (
-            SELECT 1
-            FROM accounts
-            WHERE accounts.account_id = transactions.account_id
-              AND accounts.customer_id = NULLIF(
-                  current_setting('app.current_customer_id', true), ''
-              )::bigint
+        OR (
+            current_setting('app.current_role', true) = 'customer'
+            AND EXISTS (
+                SELECT 1
+                FROM accounts
+                WHERE accounts.account_id = transactions.account_id
+                  AND accounts.customer_id = NULLIF(
+                      current_setting('app.current_customer_id', true), ''
+                  )::bigint
+            )
         )
     );
