@@ -1,8 +1,9 @@
-from decimal import Decimal, InvalidOperation
-
 import psycopg
-from flask import Blueprint, jsonify, request
+from decimal import Decimal, InvalidOperation
+from flask import Blueprint, g, jsonify, request
+
 from database import get_connection
+from decorators import token_required, employee_required
 
 accounts_bp = Blueprint(
     "accounts",
@@ -22,17 +23,27 @@ def account_to_json(row):
 
 # CREATE account
 @accounts_bp.route("", methods=["POST"])
+@employee_required
 def create_account():
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+
     customer_id = data.get("customer_id")
+    if not isinstance(customer_id, int) or isinstance(customer_id, bool) or customer_id <= 0:
+        return jsonify({"error": "Invalid customer_id"}), 400
+    
     account_number = data.get("account_number")
+    if not isinstance(account_number, str) or not account_number.strip():
+        return jsonify({"error": "Invalid account_number"}), 400
 
-    if not customer_id or not account_number:
-        return jsonify({"error": "customer_id and account_number are required"}), 400
+    account_number = account_number.strip()
+    if len(account_number) > 20:
+        return jsonify({"error": "Account number is too long"}), 400
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            try:
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
                 cur.execute(
                     """
                     INSERT INTO accounts (customer_id, account_number)
@@ -41,16 +52,20 @@ def create_account():
                     """,
                     (customer_id, account_number)
                 )
+
                 account = cur.fetchone()
-            except psycopg.errors.UniqueViolation:
-                conn.rollback()
-                return jsonify({"error": "An account with that account number already exists"}), 409
+    
+    except psycopg.errors.UniqueViolation:
+        return jsonify({"error": "An account with that account number already exists"}), 409
+    except psycopg.errors.ForeignKeyViolation:
+        return jsonify({"error": "Customer not found"}), 404
 
     return jsonify(account_to_json(account)), 201
 
 
 # READ all accounts
 @accounts_bp.route("", methods=["GET"])
+@employee_required
 def get_accounts():
     with get_connection() as conn:
         with conn.cursor() as cur:
@@ -61,6 +76,7 @@ def get_accounts():
                 ORDER BY account_id;
                 """
             )
+
             accounts = cur.fetchall()
 
     return jsonify([account_to_json(row) for row in accounts]), 200
@@ -68,17 +84,22 @@ def get_accounts():
 
 # READ one account
 @accounts_bp.route("/<int:account_id>", methods=["GET"])
+@token_required
 def get_account(account_id):
+    user = g.current_user
+
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
                 SELECT account_id, customer_id, account_number, balance
                 FROM accounts
-                WHERE account_id = %s;
+                WHERE account_id = %s
+                    AND (%s = 'employee' OR customer_id = %s);
                 """,
-                (account_id,)
+                (account_id, user["type"], user["id"])
             )
+
             account = cur.fetchone()
 
     if account is None:
@@ -87,27 +108,35 @@ def get_account(account_id):
     return jsonify(account_to_json(account)), 200
 
 
-# UPDATE account (only the owner can change; balance changes go through deposit/withdraw)
+# UPDATE account (employees only; balance changes go through deposit/withdraw)
 @accounts_bp.route("/<int:account_id>", methods=["PUT"])
+@employee_required
 def update_account(account_id):
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    
     customer_id = data.get("customer_id")
+    if not isinstance(customer_id, int) or isinstance(customer_id, bool) or customer_id <= 0:
+        return jsonify({"error": "Invalid customer_id"}), 400
 
-    if not customer_id:
-        return jsonify({"error": "customer_id is required"}), 400
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE accounts
+                    SET customer_id = %s
+                    WHERE account_id = %s
+                    RETURNING account_id, customer_id, account_number, balance;
+                    """,
+                    (customer_id, account_id)
+                )
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                UPDATE accounts
-                SET customer_id = %s
-                WHERE account_id = %s
-                RETURNING account_id, customer_id, account_number, balance;
-                """,
-                (customer_id, account_id)
-            )
-            account = cur.fetchone()
+                account = cur.fetchone()
+
+    except psycopg.errors.ForeignKeyViolation:
+        return jsonify({"error": "Customer not found"}), 404
 
     if account is None:
         return jsonify({"error": "Account not found"}), 404
@@ -117,14 +146,24 @@ def update_account(account_id):
 
 # DELETE account
 @accounts_bp.route("/<int:account_id>", methods=["DELETE"])
+@employee_required
 def delete_account(account_id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM accounts WHERE account_id = %s RETURNING account_id;",
-                (account_id,)
-            )
-            deleted = cur.fetchone()
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM accounts 
+                    WHERE account_id = %s 
+                    RETURNING account_id;
+                    """,
+                    (account_id,)
+                )
+
+                deleted = cur.fetchone()
+
+    except psycopg.errors.ForeignKeyViolation:
+        return jsonify({"error": "Cannot delete an account with existing transactions"}), 409
 
     if deleted is None:
         return jsonify({"error": "Account not found"}), 404
@@ -134,21 +173,42 @@ def delete_account(account_id):
 
 def parse_amount(value):
     """Return the amount as a Decimal if it's a positive number with at most 2 decimals, else None."""
+    if isinstance(value, bool) or value is None:
+        return None
+
     try:
         amount = Decimal(str(value))
     except (InvalidOperation, ValueError):
         return None
-    if not amount.is_finite() or amount <= 0 or amount.as_tuple().exponent < -2:
+
+    if (
+        not amount.is_finite()
+        or amount <= 0 
+        or amount > Decimal("9999999999.99") 
+        or amount.as_tuple().exponent < -2
+    ):
         return None
+
     return amount
 
 
 # DEPOSIT
 @accounts_bp.route("/<int:account_id>/deposit", methods=["POST"])
+@token_required
 def deposit(account_id):
-    data = request.get_json(silent=True) or {}
-    amount = parse_amount(data.get("amount"))
+    user = g.current_user
+    if user["type"] == "employee":
+        employee_id = user["id"]
+        customer_id = None
+    else:
+        employee_id = None
+        customer_id = user["id"]
 
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+    
+    amount = parse_amount(data.get("amount"))
     if amount is None:
         return jsonify({"error": "amount must be a positive number"}), 400
 
@@ -158,25 +218,51 @@ def deposit(account_id):
                 """
                 UPDATE accounts
                 SET balance = balance + %s
-                WHERE account_id = %s
+                WHERE account_id = %s 
+                    AND (%s = 'employee' OR customer_id = %s)
+                    AND balance <= 9999999999.99 - %s
                 RETURNING account_id, customer_id, account_number, balance;
                 """,
-                (amount, account_id)
+                (amount, account_id, user["type"], customer_id, amount)
             )
+
             account = cur.fetchone()
 
-    if account is None:
-        return jsonify({"error": "Account not found"}), 404
+            if account is None:
+                cur.execute(
+                    """
+                    SELECT 1 FROM accounts
+                    WHERE account_id = %s 
+                        AND (%s = 'employee' OR customer_id = %s);
+                    """,
+                    (account_id, user["type"], customer_id)
+                )
+
+                if cur.fetchone() is None:
+                    return jsonify({"error": "Account not found"}), 404
+
+                return jsonify({"error": "Deposit would exceed the maximum account balance"}), 400
 
     return jsonify(account_to_json(account)), 200
 
 
 # WITHDRAW
 @accounts_bp.route("/<int:account_id>/withdraw", methods=["POST"])
+@token_required
 def withdraw(account_id):
-    data = request.get_json(silent=True) or {}
-    amount = parse_amount(data.get("amount"))
+    user = g.current_user
+    if user["type"] == "employee":
+        employee_id = user["id"]
+        customer_id = None
+    else:
+        employee_id = None
+        customer_id = user["id"]
 
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "A JSON object is required"}), 400
+
+    amount = parse_amount(data.get("amount"))
     if amount is None:
         return jsonify({"error": "amount must be a positive number"}), 400
 
@@ -187,17 +273,29 @@ def withdraw(account_id):
                 """
                 UPDATE accounts
                 SET balance = balance - %s
-                WHERE account_id = %s AND balance >= %s
+                WHERE account_id = %s 
+                    AND (%s = 'employee' OR customer_id = %s) 
+                    AND balance >= %s
                 RETURNING account_id, customer_id, account_number, balance;
                 """,
-                (amount, account_id, amount)
+                (amount, account_id, user["type"], customer_id, amount)
             )
+
             account = cur.fetchone()
 
             if account is None:
-                cur.execute("SELECT 1 FROM accounts WHERE account_id = %s;", (account_id,))
+                cur.execute(
+                    """
+                    SELECT 1 FROM accounts 
+                    WHERE account_id = %s 
+                        AND (%s = 'employee' OR customer_id = %s);
+                    """, 
+                    (account_id, user["type"], customer_id)
+                )
+
                 if cur.fetchone() is None:
                     return jsonify({"error": "Account not found"}), 404
+
                 return jsonify({"error": "Insufficient funds"}), 400
 
     return jsonify(account_to_json(account)), 200
