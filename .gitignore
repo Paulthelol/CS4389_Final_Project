@@ -10,7 +10,6 @@ dist/
 node_modules/
 
 # Python
-**/__pycache
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -19,4 +18,3 @@ venv/
 
 # MacOS
 .DS_Store
- 
