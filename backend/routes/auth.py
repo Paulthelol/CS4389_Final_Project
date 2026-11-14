@@ -1,7 +1,5 @@
 import hashlib
-import os
 import secrets
-
 import psycopg
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
@@ -22,37 +20,76 @@ def employee_register():
     if not isinstance(data, dict):
         return jsonify({"error": "A JSON object is required"}), 400
 
+    setup_token = data.get("setup_token")
     username = data.get("username")
     password = data.get("password")
 
     # Validate request fields.
-    if not isinstance(username, str) or not isinstance(password, str):
-        return jsonify({"error": "Username and password are required"}), 400
+    if not all(isinstance(value, str) for value in (setup_token, username, password)):
+        return jsonify({"error": "Setup token, username, and password are required"}), 400
 
     username = username.strip()
-    if not username or len(username) > 30:
+    if not username or len(username) > 50:
         return jsonify({"error": "Invalid username"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
     if len(password.encode("utf-8")) > 1024:
         return jsonify({"error": "Password is too long"}), 400
 
-    # Hash password using Argon2 (automatically generates a random salt).
+    # Hash the supplied token and password.
+    token_hash = hashlib.sha256(setup_token.encode("utf-8")).hexdigest()
     password_hash = password_hasher.hash(password)
 
     try:
         with get_connection() as conn:
             with conn.cursor() as cur:
+                # Validate and lock the registration token.
+                cur.execute(
+                    """
+                    SELECT setup_token_id, role
+                    FROM employee_setup_tokens
+                    WHERE token_hash = %s
+                        AND expires_at > NOW()
+                        AND used_at IS NULL
+                    FOR UPDATE;
+                    """,
+                    (token_hash,)
+                )
+
+                setup = cur.fetchone()
+                if setup is None:
+                    return jsonify({"error": "Invalid or expired registration token"}), 400
+
+                setup_token_id, role = setup
+
+                # Create the employee using the role assigned to the setup token.
                 cur.execute(
                     """
                     INSERT INTO employees (username, password_hash, role)
                     VALUES (%s, %s, %s)
                     RETURNING employee_id, username, role;
                     """,
-                    (username, password_hash, "teller")
+                    (username, password_hash, role)
                 )
 
+                if cur.rowcount != 1:
+                    raise RuntimeError("Unable to complete employee registration")
+
                 employee = cur.fetchone()
+
+                # Mark the registration token as used.
+                cur.execute(
+                    """
+                    UPDATE employee_setup_tokens
+                    SET used_at = NOW()
+                    WHERE setup_token_id = %s
+                        AND used_at IS NULL;
+                    """,
+                    (setup_token_id,)
+                )
+
+                if cur.rowcount != 1:
+                    raise RuntimeError("Unable to complete employee registration")
 
     except psycopg.errors.UniqueViolation:
         return jsonify({"error": "Username already exists"}), 409
@@ -79,6 +116,8 @@ def employee_login():
 
     if not isinstance(username, str) or not isinstance(password, str):
         return jsonify({"error": "Username and password are required"}), 400
+    if len(password.encode("utf-8")) > 1024:
+        return jsonify({"error": "Password is too long"}), 400
 
     # Look up employee credentials
     with get_connection() as conn:
@@ -114,11 +153,7 @@ def employee_login():
             cur.execute(
                 """
                 INSERT INTO sessions (employee_id, token_hash, expires_at)
-                VALUES (
-                    %s,
-                    %s,
-                    NOW() + (%s * INTERVAL '1 hour')
-                )
+                VALUES (%s, %s, NOW() + (%s * INTERVAL '1 hour'))
                 RETURNING expires_at;
                 """,
                 (employee[0], token_hash, session_hours)
@@ -167,6 +202,8 @@ def customer_register():
     email = email.strip().lower()
     if not email or not setup_token or not password:
         return jsonify({"error": "Email, setup token, and password are required"}), 400
+    if len(email) > 255:
+        return jsonify({"error": "Email is too long"}), 400
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters"}), 400
     if len(password.encode("utf-8")) > 1024:
@@ -186,17 +223,16 @@ def customer_register():
                 JOIN customers AS c
                     ON c.customer_id = t.customer_id
                 WHERE LOWER(c.email) = %s
-                  AND t.token_hash = %s
-                  AND t.expires_at > NOW()
-                  AND t.used_at IS NULL
-                  AND c.password_hash IS NULL
+                    AND t.token_hash = %s
+                    AND t.expires_at > NOW()
+                    AND t.used_at IS NULL
+                    AND c.password_hash IS NULL
                 FOR UPDATE OF t, c;
                 """,
                 (email, token_hash)
             )
 
             setup = cur.fetchone()
-
             if setup is None:
                 return jsonify({"error": "Invalid or expired registration details"}), 400
 
@@ -207,22 +243,26 @@ def customer_register():
                 UPDATE customers
                 SET password_hash = %s
                 WHERE customer_id = %s
-                  AND password_hash IS NULL;
+                    AND password_hash IS NULL;
                 """,
                 (password_hash, customer_id)
             )
 
             if cur.rowcount != 1:
-                return jsonify({"error": "Unable to complete registration"}), 409
+                raise RuntimeError("unable to complete registration")
 
             cur.execute(
                 """
                 UPDATE customer_setup_tokens
                 SET used_at = NOW()
-                WHERE setup_token_id = %s;
+                WHERE setup_token_id = %s
+                    AND used_at IS NULL;
                 """,
                 (setup_token_id,)
             )
+
+            if cur.rowcount != 1:
+                raise RuntimeError("unable to complete registration")
 
     return jsonify({"message": "Password setup successful"}), 201
 
@@ -242,6 +282,8 @@ def customer_login():
     email = email.strip().lower()
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
+    if len(password.encode("utf-8")) > 1024:
+        return jsonify({"error": "Password is too long"}), 400
 
     # Look up an existing customer by email.
     with get_connection() as conn:
@@ -276,16 +318,8 @@ def customer_login():
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO sessions (
-                    customer_id,
-                    token_hash,
-                    expires_at
-                )
-                VALUES (
-                    %s,
-                    %s,
-                    NOW() + (%s * INTERVAL '1 hour')
-                )
+                INSERT INTO sessions (customer_id, token_hash, expires_at)
+                VALUES (%s, %s, NOW() + (%s * INTERVAL '1 hour'))
                 RETURNING expires_at;
                 """,
                 (customer[0], token_hash, session_hours)

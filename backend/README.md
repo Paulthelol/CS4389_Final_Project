@@ -10,6 +10,7 @@ A RESTful banking API built with Python, Flask, and PostgreSQL. The project is d
 - **Database Driver:** Psycopg 3
 - **Password Hashing:** Argon2
 - **Authentication:** Stateful sessions with opaque tokens
+- **Authorization:** Role-based access control and resource ownership checks
 - **Development Environment:** VS Code Dev Containers and Docker Compose
 
 ## Project Structure
@@ -22,19 +23,25 @@ project-root/
 │   └── Dockerfile
 ├── backend/
 │   ├── app.py
+│   ├── decorators.py
 │   ├── database/
 │   │   ├── __init__.py
 │   │   └── connection.py
-│   └── routes/
-│       ├── __init__.py
-│       ├── auth.py
-│       ├── employees.py
-│       ├── customers.py
-│       └── accounts.py
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── employees.py
+│   │   ├── customers.py
+│   │   └── accounts.py
+│   └── README.md
+├── database/
+│   ├── init/
+│   │   └── schema.sql
+│   └── reset-db.sh
 ├── .env
 ├── .env.example
-├── requirements.txt
-└── README.md
+├── .gitignore
+└── requirements.txt
 ```
 
 ## Prerequisites
@@ -62,12 +69,14 @@ APP_DB_PASSWORD=changemetoo
 DB_HOST=localhost
 DB_PORT=5432
 
-SESSION_TTL_HOURS=#
+SESSION_TTL_HOURS=8
 ```
 
 Replace the example password with a secure local development password.
 
 The `.env` file provides configuration to the PostgreSQL container through Docker Compose. Keep it out of version control; commit `.env.example` without real credentials.
+
+`SESSION_TTL_HOURS` controls how long authenticated sessions remain valid. The application defaults to 8 hours and accepts values between 1 and 168.
 
 ### 2. Open the Dev Container
 
@@ -92,21 +101,17 @@ DB_HOST=localhost
 DB_PORT=5432
 ```
 
-The `database/connection.py` module loads the environment configuration and provides a reusable `get_connection()` function for route handlers.
+The `backend/database/connection.py` module loads the environment configuration and provides a reusable `get_connection()` function for route handlers.
+
+Database connections use Psycopg connection and cursor context managers to manage resource cleanup and transaction handling.
 
 ### 4. Initialize the Database
 
-PostgreSQL automatically creates the database tables and loads initial data using SQL scripts in `database/init/` when the database is first initialized.
+Initialize the PostgreSQL database using the project's SQL schema and initialization scripts.
 
-The database is stored in a persistent Docker volume, so rebuilding the Dev Container does not rerun the initialization scripts.
+The database is stored in a persistent Docker volume, so rebuilding the Dev Container does not automatically recreate the database or rerun initialization scripts.
 
-If the database schema or seed data changes, reset it from a host terminal in the project root:
-
-```bash
-./database/reset-db.sh
-```
-
-To verify the tables exist, run the following inside the Dev Container:
+To verify the database connection and inspect available tables, run the following inside the Dev Container:
 
 ```bash
 psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dt'
@@ -126,7 +131,7 @@ Alternatively, if your terminal is already in `backend/`:
 python app.py
 ```
 
-Configure Flask to listen on `0.0.0.0:5000` so VS Code can forward port `5000` to your local machine.
+The Flask application listens on `0.0.0.0:5000` so VS Code can forward port `5000` to your local machine.
 
 The API should then be accessible at:
 
@@ -136,30 +141,69 @@ http://localhost:5000
 
 ## API Endpoints
 
-The following endpoints represent the planned API structure. Verify each route's implementation before relying on it.
+All endpoints requiring authentication expect an opaque session token in the HTTP `Authorization` header:
 
-| Resource | Method | Endpoint | Purpose |
+```text
+Authorization: Bearer <session_token>
+```
+
+### Authentication
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| POST | `/auth/employees/register` | Register an employee using an invitation token |
+| POST | `/auth/employees/login` | Authenticate an employee |
+| POST | `/auth/customers/register` | Set up a customer password using a setup token |
+| POST | `/auth/customers/login` | Authenticate a customer |
+| POST | `/auth/logout` | Invalidate the current session |
+
+Employee and customer registration use separate setup-token workflows. These tokens are generated when an employee or customer record is provisioned and are required to complete account registration.
+
+### Employees
+
+| Method | Endpoint | Purpose | Access |
 |---|---|---|---|
-| Authentication | POST | `/auth/register` | Register an employee account |
-| Authentication | POST | `/auth/login` | Authenticate an employee |
-| Authentication | POST | `/auth/logout` | Invalidate the current session |
-| Employees | GET | `/employees` | Retrieve employees |
-| Employees | GET | `/employees/<id>` | Retrieve an employee |
-| Employees | POST | `/employees` | Create an employee |
-| Employees | PUT/PATCH | `/employees/<id>` | Update an employee |
-| Employees | DELETE | `/employees/<id>` | Delete an employee |
-| Customers | GET | `/customers` | Retrieve customers |
-| Customers | GET | `/customers/<id>` | Retrieve a customer |
-| Customers | POST | `/customers` | Create a customer |
-| Customers | PUT/PATCH | `/customers/<id>` | Update a customer |
-| Customers | DELETE | `/customers/<id>` | Delete a customer |
-| Accounts | GET | `/accounts` | Retrieve accounts |
-| Accounts | GET | `/accounts/<id>` | Retrieve an account |
-| Accounts | POST | `/accounts` | Create an account |
-| Accounts | PUT/PATCH | `/accounts/<id>` | Update an account |
-| Accounts | DELETE | `/accounts/<id>` | Delete an account |
+| POST | `/employees` | Generate an employee registration token | Admin |
+| GET | `/employees` | Retrieve all employees | Admin |
+| GET | `/employees/<employee_id>` | Retrieve an employee | Employee |
+| PUT | `/employees/<employee_id>` | Update an employee's username | Employee |
+| DELETE | `/employees/<employee_id>` | Delete an employee | Admin |
 
-## Authentication Design
+Employees can retrieve and update their own records. Administrators can retrieve and update other employees.
+
+Employee registration tokens contain the assigned employee role, which is retrieved during registration rather than supplied by the registering user.
+
+### Customers
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| POST | `/customers` | Create a customer and generate a setup token | Employee |
+| GET | `/customers` | Retrieve all customers | Employee |
+| GET | `/customers/<customer_id>` | Retrieve a customer | Employee or owning customer |
+| PUT/PATCH | `/customers/<customer_id>` | Update customer information | Employee |
+| DELETE | `/customers/<customer_id>` | Delete a customer | Employee or owning customer |
+
+Customer creation generates a one-time setup token used to establish the customer's password through the registration endpoint.
+
+Customer records include personal information such as SSN. API responses mask SSNs, exposing only the last four digits.
+
+### Accounts
+
+| Method | Endpoint | Purpose | Access |
+|---|---|---|---|
+| POST | `/accounts` | Create an account | Employee |
+| GET | `/accounts` | Retrieve all accounts | Employee |
+| GET | `/accounts/<account_id>` | Retrieve an account | Employee or owning customer |
+| PUT | `/accounts/<account_id>` | Update an account's customer association | Employee |
+| DELETE | `/accounts/<account_id>` | Delete an account | Employee |
+| POST | `/accounts/<account_id>/deposit` | Deposit funds | Employee or owning customer |
+| POST | `/accounts/<account_id>/withdraw` | Withdraw funds | Employee or owning customer |
+
+Account numbers are masked in API responses, exposing only the last four digits.
+
+Deposit and withdrawal operations validate monetary amounts and enforce account balance limits. Withdrawals use an atomic database update to prevent concurrent requests from overdrawing an account.
+
+## Authentication and Authorization
 
 The authentication system uses stateful sessions stored in PostgreSQL.
 
@@ -168,14 +212,25 @@ The authentication system uses stateful sessions stored in PostgreSQL.
 - Only a SHA-256 hash of the session token is stored in the database.
 - Sessions have an expiration time controlled by `SESSION_TTL_HOURS`.
 - Session records can be invalidated server-side, allowing sessions to be revoked.
+- Customer and employee sessions are associated with their respective database records.
 
-Authenticated endpoints should validate session tokens and enforce employee roles and permissions before granting access.
+Authenticated routes use shared decorators to validate sessions and enforce access requirements.
+
+The application supports two employee roles:
+
+- **Teller:** Employee-level access to banking operations.
+- **Admin:** Administrative access to employee management and other protected operations.
+
+Customer access is restricted to resources associated with their own customer record. Employees can access customer and account resources according to their permissions.
 
 ## Development Notes
 
 - Database connections are created through the shared `get_connection()` function.
 - Route modules are organized into Flask Blueprints.
-- The routes package automatically discovers eligible Blueprint objects from modules directly inside `backend/routes/`.
+- The routes package exports its Blueprints through `__all__`, which `app.py` uses to register them automatically.
+- Authentication and authorization decorators are centralized in `decorators.py`.
+- Database exceptions and unexpected application errors are handled centrally in `app.py`.
+- Database operations use parameterized SQL queries.
 - Docker Compose manages the application development environment and PostgreSQL service.
 - The named `postgres-data` volume persists database data across container restarts.
 
@@ -189,6 +244,7 @@ This project is for development and learning purposes. Before deploying a bankin
 - Input validation and consistent error handling.
 - Protection against unauthorized balance changes and invalid transactions.
 - Session expiration, logout, and revocation.
-- Database backups, logging, monitoring, and automated tests.
+- Transaction history and audit logging.
+- Database backups, monitoring, and automated tests.
 
 Never commit `.env` files, production credentials, or real customer information to version control.
