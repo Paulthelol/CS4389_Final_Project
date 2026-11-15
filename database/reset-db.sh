@@ -12,8 +12,8 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="$PROJECT_ROOT/.devcontainer/docker-compose.yml"
 
-# Find running database containers associated with this project.
-DB_CONTAINER="$(docker ps -q \
+# Find any database containers associated with this project.
+DB_CONTAINER="$(docker ps -qa \
     --filter "label=com.docker.compose.service=db" \
     --filter "label=com.docker.compose.project.working_dir=$PROJECT_ROOT/.devcontainer")"
 

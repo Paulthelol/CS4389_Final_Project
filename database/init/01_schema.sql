@@ -29,11 +29,17 @@ CREATE TABLE transactions (
     transaction_id BIGSERIAL PRIMARY KEY,
     account_id BIGINT NOT NULL
         REFERENCES accounts(account_id),
-    employee_id BIGINT NOT NULL
+    customer_id BIGINT
+        REFERENCES customers(customer_id),
+    employee_id BIGINT
         REFERENCES employees(employee_id),
     amount NUMERIC(12, 2) NOT NULL  -- max of 9999999999.99 ($10 billion)
         CHECK (amount <> 0),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT transaction_one_actor CHECK (
+        (customer_id IS NOT NULL AND employee_id IS NULL)
+        OR (customer_id IS NULL AND employee_id IS NOT NULL)
+    )
 );
 
 CREATE INDEX idx_transactions_account_id ON transactions(account_id);
