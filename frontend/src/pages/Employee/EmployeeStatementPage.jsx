@@ -1,10 +1,10 @@
 // I was thinking that the view button causes a popup to appear with the statement for that customer. 
 
-export default function TellerStatementPage({ onNavigate }) {
+export default function EmployeeStatementPage({ onNavigate }) {
   return (
     <>
       <h1>Account Statement</h1><br></br>
-      <button data-nav="/tellerHome" onClick={() => onNavigate('/tellerHome')}>{'<- Back home'}</button><br></br>
+      <button data-nav="/employeeHome" onClick={() => onNavigate('/employeeHome')}>{'<- Back home'}</button><br></br>
         
       <table>
         <thead>

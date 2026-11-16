@@ -1,8 +1,8 @@
-export default function TellerLoginPage({ loginResult, onSubmit, onNavigate }) {
+export default function EmployeeLoginPage({ loginResult, onSubmit, onNavigate }) {
   return (
     <>
       <h1>Please Log in User</h1>
-      <form id="tellerLoginForm" onSubmit={onSubmit}>
+      <form id="employeeLoginForm" onSubmit={onSubmit}>
         <fieldset>
           <label htmlFor="tUsername">Username:</label>
           <input type="text" id="tUsername" name="tUsername" autoComplete="username" required /><br /><br />

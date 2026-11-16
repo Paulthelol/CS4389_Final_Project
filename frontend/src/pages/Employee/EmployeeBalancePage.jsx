@@ -1,10 +1,10 @@
-//The teller is able to see all the customer' balances **UNDER THEIR MANAGEMENT**
+//The employee is able to see all the customer' balances **UNDER THEIR MANAGEMENT**
 
-export default function TellerBalancePage({ onNavigate }) {
+export default function employeeBalancePage({ onNavigate }) {
   return (
     <>
       <h1>Account Balance</h1><br></br>
-      <button data-nav="/tellerHome" onClick={() => onNavigate('/tellerHome')}>{'<- Back home'}</button><br></br>
+      <button data-nav="/employeeHome" onClick={() => onNavigate('/employeeHome')}>{'<- Back home'}</button><br></br>
       <table>
         <thead>
           <tr>
