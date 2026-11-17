@@ -1,10 +1,14 @@
 import hashlib
 import secrets
+from contextlib import contextmanager
 
 import psycopg
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
-from database import get_connection
+from database.connection import (
+    get_authenticated_connection,
+    get_pre_auth_connection,
+)
 from decorators import employee_required, role_required
 
 employees_bp = Blueprint(
@@ -13,14 +17,39 @@ employees_bp = Blueprint(
     url_prefix="/employees"
 )
 
-#json representation of employee data
+
+@contextmanager
+def get_employee_connection():
+    """
+    Return a database connection with the appropriate employee RLS context.
+
+    When API security is enabled, use the authenticated employee's identity.
+    When API security is disabled, the decorators simulate an admin, so use
+    the admin database context instead.
+    """
+    if not current_app.config.get("API_SECURITY_ENABLED", True):
+        with get_pre_auth_connection() as conn:
+            yield conn
+        return
+
+    user = g.current_user
+
+    with get_authenticated_connection(
+        user["role"],
+        employee_id=user["id"]
+    ) as conn:
+        yield conn
+
+
+# JSON representation of employee data
 def employee_to_json(row):
     return {
         "employee_id": row[0],
         "username": row[1],
         "role": row[2]
     }
-    
+
+
 # CREATE employee registration token
 @employees_bp.route("", methods=["POST"])
 @role_required("admin")
@@ -38,7 +67,7 @@ def create_employee():
     setup_token = secrets.token_urlsafe(32)
     token_hash = hashlib.sha256(setup_token.encode("utf-8")).hexdigest()
 
-    with get_connection() as conn:
+    with get_employee_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -65,7 +94,7 @@ def create_employee():
 @employees_bp.route("", methods=["GET"])
 @role_required("admin")
 def get_employees():
-    with get_connection() as conn:
+    with get_employee_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -86,7 +115,7 @@ def get_employees():
 def get_employee(employee_id):
     user = g.current_user
 
-    with get_connection() as conn:
+    with get_employee_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -111,10 +140,11 @@ def get_employee(employee_id):
 @employee_required
 def update_employee(employee_id):
     user = g.current_user
+
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "A JSON object is required"}), 400
-    
+
     username = data.get("username")
     if not isinstance(username, str):
         return jsonify({"error": "Username is required"}), 400
@@ -123,24 +153,26 @@ def update_employee(employee_id):
     if not username or len(username) > 50:
         return jsonify({"error": "Invalid username"}), 400
 
-    try: 
-        with get_connection() as conn:
+    try:
+        with get_employee_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
                     UPDATE employees
                     SET username = %s
-                    WHERE employee_id = %s 
+                    WHERE employee_id = %s
                         AND (%s = 'admin' OR employee_id = %s)
                     RETURNING employee_id, username, role;
                     """,
                     (username, employee_id, user["role"], user["id"])
                 )
-                
+
                 employee = cur.fetchone()
-    
+
     except psycopg.errors.UniqueViolation:
-        return jsonify({"error": "An employee with that username already exists"}), 409
+        return jsonify({
+            "error": "An employee with that username already exists"
+        }), 409
 
     if employee is None:
         return jsonify({"error": "Employee not found"}), 404
@@ -153,10 +185,14 @@ def update_employee(employee_id):
 @role_required("admin")
 def delete_employee(employee_id):
     user = g.current_user
+
     if employee_id == user["id"]:
-        return jsonify({"error": "You cannot delete your own employee account"}), 400
+        return jsonify({
+            "error": "You cannot delete your own employee account"
+        }), 400
+
     try:
-        with get_connection() as conn:
+        with get_employee_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -170,7 +206,9 @@ def delete_employee(employee_id):
                 employee = cur.fetchone()
 
     except psycopg.errors.ForeignKeyViolation:
-        return jsonify({"error": "Employee cannot be deleted because they have associated transactions"}), 409
+        return jsonify({
+            "error": "Employee cannot be deleted because they have associated transactions"
+        }), 409
 
     if employee is None:
         return jsonify({"error": "Employee not found"}), 404
