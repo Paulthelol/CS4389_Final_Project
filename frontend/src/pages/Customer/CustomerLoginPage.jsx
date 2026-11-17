@@ -4,8 +4,8 @@ export default function CustomerLoginPage({ loginResult, onSubmit, onNavigate })
       <h1>Please Log in Customer</h1>
       <form id="customerLoginForm" onSubmit={onSubmit}>
         <fieldset>
-          <label htmlFor="cUsername">Username:</label>
-          <input type="text" id="cUsername" name="cUsername" autoComplete="username" required /><br /><br />
+          <label htmlFor="cEmail">Email:</label>
+          <input type="email" id="cEmail" name="cEmail" autoComplete="username" required /><br /><br />
           <label htmlFor="cPassword">Password:</label>
           <input type="password" id="cPassword" name="cPassword" autoComplete="current-password" required /><br /><br />
           <input type="submit" value="Submit" /><br /><br />

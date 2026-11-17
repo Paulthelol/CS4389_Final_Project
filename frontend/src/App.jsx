@@ -62,10 +62,10 @@ export default function App() {
     const isEmployee = activePath === '/employeeLogin';
     const form = event.currentTarget
     const fields = new FormData(form);
-    const username = fields.get(isEmployee ? 'tUsername' : 'cUsername'); // this will probably be emails
+    const username = fields.get(isEmployee ? 'tUsername' : 'cEmail');
     const password = fields.get(isEmployee ? 'tPassword' : 'cPassword');
 
-    const endpoint = isEmployee ? '/auth/employees/login' : '/auth/customers/login';
+    const endpoint = isEmployee ? '/api/auth/employees/login' : '/api/auth/customers/login';
     const body = isEmployee ? {username: username, password } : {email: username, password }; // employee login uses username, customer login uses email
     
     try 
@@ -91,24 +91,29 @@ export default function App() {
       setSessionToken(data.session_token);
       navigate(isEmployee ? '/employeeHome' : '/');
 
-  } catch (err){
+  } catch {
     setLoginResult('Unable to reach Server')
     }
   }
 
   async function logout() {
+    let logoutFailed = false;
     if(sessionToken)
     {
       try{
-        await fetch('http://localhost:5000/auth/logout', {
+        const response = await fetch('/api/auth/logout', {
           method: 'POST',
           headers: { Authorization: `Bearer ${sessionToken}` },
         });
-      }catch{/* ignore network errors on logout*/ }
+        logoutFailed = !response.ok;
+      }catch{ logoutFailed = true; }
     }
     setUser('');
     setSessionToken(null);
     navigate('/customerLogin');
+    if (logoutFailed) {
+      setLoginResult('Signed out in-browser, but the server session could not be ended.');
+    }
   }
 
   const Page = Object.hasOwn(routes, activePath) ? routes[activePath] : HomePage;
@@ -117,7 +122,7 @@ export default function App() {
     <Page
       key={activePath}
       user={user}
-      seesionToken={sessionToken}
+      sessionToken={sessionToken}
       loginResult={loginResult}
       onSubmit={submitLogin}
       onNavigate={navigate}

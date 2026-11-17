@@ -6,8 +6,6 @@ export default function EmployeeLoginPage({ loginResult, onSubmit, onNavigate })
         <fieldset>
           <label htmlFor="tUsername">Username:</label>
           <input type="text" id="tUsername" name="tUsername" autoComplete="username" required /><br /><br />
-          <label htmlFor="employeeId">Employee Id:</label>
-          <input type="text" inputMode="numeric" id="employeeId" name="employeeId" required /><br /><br />
           <label htmlFor="tPassword">Password:</label>
           <input type="password" id="tPassword" name="tPassword" autoComplete="current-password" required /><br /><br />
           <input type="submit" value="Submit" /><br /><br />
