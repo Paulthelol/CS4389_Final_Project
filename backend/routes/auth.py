@@ -339,6 +339,7 @@ def customer_login():
 
 #==============================================================================
 
+
 # LOGOUT
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
@@ -346,6 +347,9 @@ def logout():
     parts = auth_header.split()
 
     if len(parts) != 2 or parts[0].lower() != "bearer":
+        if not current_app.config["API_SECURITY_ENABLED"]:
+            return jsonify({"message": "Logout successful"}), 200
+
         return jsonify({"error": "Authentication required"}), 401
 
     token = parts[1]
