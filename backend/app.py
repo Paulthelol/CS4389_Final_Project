@@ -24,10 +24,35 @@ def get_session_ttl_hours():
     return hours
 
 
+def get_bool_env(name, default):
+    value = os.getenv(name, default).strip().lower()
+
+    if value in ("true", "1", "yes", "on"):
+        return True
+
+    if value in ("false", "0", "no", "off"):
+        return False
+
+    raise RuntimeError(f"{name} must be a Boolean value")
+
+
 def create_app():
     app = Flask(__name__)
 
     app.config["SESSION_TTL_HOURS"] = get_session_ttl_hours()
+
+    demo_mode = get_bool_env("DEMO_MODE", "false")
+    security_enabled = get_bool_env("API_SECURITY_ENABLED", "true")
+
+    # Never allow security to be disabled outside demo mode.
+    if not security_enabled and not demo_mode:
+        raise RuntimeError("API security cannot be disabled unless DEMO_MODE is enabled")
+
+    app.config["DEMO_MODE"] = demo_mode
+    app.config["API_SECURITY_ENABLED"] = security_enabled
+
+    if not security_enabled:
+        app.logger.warning("API SECURITY IS DISABLED. Vulnerable demo mode is active.")
 
     # Automatically register exported Blueprints
     for name in routes.__all__:
