@@ -1,11 +1,12 @@
 import hashlib
 import secrets
+
 import psycopg
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
 from flask import Blueprint, current_app, jsonify, request
 
-from database import get_connection
+from database.connection import get_pre_auth_connection
 
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
@@ -25,8 +26,13 @@ def employee_register():
     password = data.get("password")
 
     # Validate request fields.
-    if not all(isinstance(value, str) for value in (setup_token, username, password)):
-        return jsonify({"error": "Setup token, username, and password are required"}), 400
+    if not all(
+        isinstance(value, str)
+        for value in (setup_token, username, password)
+    ):
+        return jsonify({
+            "error": "Setup token, username, and password are required"
+        }), 400
 
     username = username.strip()
     if not username or len(username) > 50:
@@ -41,7 +47,7 @@ def employee_register():
     password_hash = password_hasher.hash(password)
 
     try:
-        with get_connection() as conn:
+        with get_pre_auth_connection() as conn:
             with conn.cursor() as cur:
                 # Validate and lock the registration token.
                 cur.execute(
@@ -58,7 +64,9 @@ def employee_register():
 
                 setup = cur.fetchone()
                 if setup is None:
-                    return jsonify({"error": "Invalid or expired registration token"}), 400
+                    return jsonify({
+                        "error": "Invalid or expired registration token"
+                    }), 400
 
                 setup_token_id, role = setup
 
@@ -73,7 +81,9 @@ def employee_register():
                 )
 
                 if cur.rowcount != 1:
-                    raise RuntimeError("Unable to complete employee registration")
+                    raise RuntimeError(
+                        "Unable to complete employee registration"
+                    )
 
                 employee = cur.fetchone()
 
@@ -89,7 +99,9 @@ def employee_register():
                 )
 
                 if cur.rowcount != 1:
-                    raise RuntimeError("Unable to complete employee registration")
+                    raise RuntimeError(
+                        "Unable to complete employee registration"
+                    )
 
     except psycopg.errors.UniqueViolation:
         return jsonify({"error": "Username already exists"}), 409
@@ -119,8 +131,8 @@ def employee_login():
     if len(password.encode("utf-8")) > 1024:
         return jsonify({"error": "Password is too long"}), 400
 
-    # Look up employee credentials
-    with get_connection() as conn:
+    # Look up employee credentials.
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -148,7 +160,7 @@ def employee_login():
     session_hours = current_app.config["SESSION_TTL_HOURS"]
 
     # Save session and expiration.
-    with get_connection() as conn:
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -173,14 +185,6 @@ def employee_login():
     }), 200
 
 
-#==============================================================================
-
-"""
-Employee generates a one-time setup token to be provided to the customer
-after the employee has entered the customer's information into the database.
-
-Customer uses this token to register a password for their login credentials.
-"""
 # CUSTOMER PASSWORD SETUP
 @auth_bp.route("/customers/register", methods=["POST"])
 def customer_register():
@@ -197,11 +201,15 @@ def customer_register():
         isinstance(value, str)
         for value in (email, setup_token, password)
     ):
-        return jsonify({"error": "Email, setup token, and password are required"}), 400
+        return jsonify({
+            "error": "Email, setup token, and password are required"
+        }), 400
 
     email = email.strip().lower()
     if not email or not setup_token or not password:
-        return jsonify({"error": "Email, setup token, and password are required"}), 400
+        return jsonify({
+            "error": "Email, setup token, and password are required"
+        }), 400
     if len(email) > 255:
         return jsonify({"error": "Email is too long"}), 400
     if len(password) < 8:
@@ -214,7 +222,7 @@ def customer_register():
     password_hash = password_hasher.hash(password)
 
     # Verify the token and update the existing customer atomically.
-    with get_connection() as conn:
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -234,7 +242,9 @@ def customer_register():
 
             setup = cur.fetchone()
             if setup is None:
-                return jsonify({"error": "Invalid or expired registration details"}), 400
+                return jsonify({
+                    "error": "Invalid or expired registration details"
+                }), 400
 
             setup_token_id, customer_id = setup
 
@@ -249,7 +259,7 @@ def customer_register():
             )
 
             if cur.rowcount != 1:
-                raise RuntimeError("unable to complete registration")
+                raise RuntimeError("Unable to complete registration")
 
             cur.execute(
                 """
@@ -262,9 +272,10 @@ def customer_register():
             )
 
             if cur.rowcount != 1:
-                raise RuntimeError("unable to complete registration")
+                raise RuntimeError("Unable to complete registration")
 
     return jsonify({"message": "Password setup successful"}), 201
+
 
 # CUSTOMER LOGIN
 @auth_bp.route("/customers/login", methods=["POST"])
@@ -278,7 +289,7 @@ def customer_login():
 
     if not isinstance(email, str) or not isinstance(password, str):
         return jsonify({"error": "Email and password are required"}), 400
-    
+
     email = email.strip().lower()
     if not email or not password:
         return jsonify({"error": "Email and password are required"}), 400
@@ -286,7 +297,7 @@ def customer_login():
         return jsonify({"error": "Password is too long"}), 400
 
     # Look up an existing customer by email.
-    with get_connection() as conn:
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -296,6 +307,7 @@ def customer_login():
                 """,
                 (email,)
             )
+
             customer = cur.fetchone()
 
     # Reject customers who do not exist or have not set up credentials.
@@ -314,7 +326,7 @@ def customer_login():
     session_hours = current_app.config["SESSION_TTL_HOURS"]
 
     # Save session and expiration.
-    with get_connection() as conn:
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -324,6 +336,7 @@ def customer_login():
                 """,
                 (customer[0], token_hash, session_hours)
             )
+
             expires_at = cur.fetchone()[0]
 
     return jsonify({
@@ -337,8 +350,6 @@ def customer_login():
     }), 200
 
 
-#==============================================================================
-
 # LOGOUT
 @auth_bp.route("/logout", methods=["POST"])
 def logout():
@@ -346,12 +357,15 @@ def logout():
     parts = auth_header.split()
 
     if len(parts) != 2 or parts[0].lower() != "bearer":
+        if not current_app.config["API_SECURITY_ENABLED"]:
+            return jsonify({"message": "Logout successful"}), 200
+
         return jsonify({"error": "Authentication required"}), 401
 
     token = parts[1]
     token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
 
-    with get_connection() as conn:
+    with get_pre_auth_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """

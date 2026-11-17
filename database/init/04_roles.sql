@@ -1,4 +1,4 @@
-\getenv app_db_password APP_DB_PASSWORD
+\getenv app_db_password POSTGRES_APP_PASSWORD
 
 SELECT format(
     'CREATE ROLE banking_app LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS',
@@ -21,7 +21,7 @@ GRANT USAGE ON SCHEMA public TO banking_app;
 
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON employees, customers, accounts, transactions, sessions,
-   customer_setup_tokens
+   customer_setup_tokens, employee_setup_tokens
 TO banking_app;
 
 GRANT USAGE, SELECT

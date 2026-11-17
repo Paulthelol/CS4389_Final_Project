@@ -62,6 +62,19 @@ The database initializes a separate `banking_app` login role for the backend.
 It is not a superuser and does not bypass RLS. `POSTGRES_*` credentials are used
 only by PostgreSQL initialization; backend uses `APP_DB_USER` and `APP_DB_PASSWORD`.
 
+## Masked views
+
+Read-only views that mask sensitive fields. They use
+`WITH (security_invoker = true)`, so the querying user's RLS policies on the
+underlying tables still apply.
+
+- `customers_masked` — `customer_id`, `first_name`, `last_name`, `ssn` as
+  `***-**-1234`, `email` (no `password_hash`)
+- `accounts_masked` — `account_id`, `customer_id`, `account_number` as
+  `*****1234`, `balance`
+
+`banking_app` has `SELECT` only on these views; writes go to the base tables.
+
 ## Relationships
 
 - Customer `1 → 0..*` Account

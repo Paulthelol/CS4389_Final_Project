@@ -1,16 +1,28 @@
+
 import hashlib
 from functools import wraps
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 from database import get_connection
 
 
 def token_required(func):
-    """Require a valid, unexpired bearer token."""
+    """Require a valid, unexpired bearer token unless demo security is disabled."""
 
     @wraps(func)
     def decorated(*args, **kwargs):
+
+        # Vulnerable demo mode: simulate an administrator.
+        if not current_app.config["API_SECURITY_ENABLED"]:
+            g.current_user = {
+                "type": "employee",
+                "id": None,
+                "role": "admin"
+            }
+
+            return func(*args, **kwargs)
+
         # Extract the bearer token.
         parts = request.headers.get("Authorization", "").split()
 
