@@ -13,6 +13,7 @@ export default function EmployeeLoginPage({ loginResult, onSubmit, onNavigate })
         </fieldset>
       </form>
       <footer>
+        <button onClick={() => onNavigate('/employeeRegister')}>Register with invitation token</button>
         <button data-nav="/customerLogin" onClick={() => onNavigate('/customerLogin')}>Customer Login</button>
       </footer>
     </>

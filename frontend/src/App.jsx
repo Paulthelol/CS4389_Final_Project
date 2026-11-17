@@ -1,40 +1,52 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { apiRequest } from './api.js';
 import CustomerLoginPage from './pages/Customer/CustomerLoginPage.jsx';
 import EmployeeLoginPage from './pages/Employee/EmployeeLoginPage.jsx';
 import HomePage from './pages/Customer/HomePage.jsx';
 import EmployeeHomePage from './pages/Employee/EmployeeHomePage.jsx';
 import BalancePage from './pages/Customer/BalancePage.jsx';
 import EmployeeBalancePage from './pages/Employee/EmployeeBalancePage.jsx';
+import CustomersPage from './pages/Employee/CustomersPage.jsx';
+import EmployeesPage from './pages/Employee/EmployeesPage.jsx';
+import RegistrationPage from './pages/RegistrationPage.jsx';
 import StatementPage from './pages/Customer/StatementPage.jsx';
 import EmployeeStatementPage from './pages/Employee/EmployeeStatementPage.jsx';
 import LoanPage from './pages/Customer/LoanPage.jsx';
-import EmployeeLoanPage from './pages/Customer/LoanPage.jsx';
+import EmployeeLoanPage from './pages/Employee/EmployeeLoanPage.jsx';
 
-// Each route has its own page skeleton; layout and markup live in src/pages/.
 const routes = {
   '/customerLogin': CustomerLoginPage,
   '/employeeLogin': EmployeeLoginPage,
+  '/customerRegister': RegistrationPage,
+  '/employeeRegister': RegistrationPage,
   '/': HomePage,
   '/employeeHome': EmployeeHomePage,
   '/balance': BalancePage,
   '/employeeBalances': EmployeeBalancePage,
+  '/customers': CustomersPage,
+  '/employees': EmployeesPage,
   '/statement': StatementPage,
   '/employeeStatements': EmployeeStatementPage,
   '/userLoans': LoanPage,
   '/employeeLoans': EmployeeLoanPage,
 };
+const publicPaths = ['/customerLogin', '/employeeLogin', '/customerRegister', '/employeeRegister'];
+const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements', '/employeeLoans'];
 
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
-  const [user, setUser] = useState('');
+  const [user, setUser] = useState(null);
   const [loginResult, setLoginResult] = useState('');
   const [sessionToken, setSessionToken] = useState(null);
-  const isLoginPage = path === '/customerLogin';
-  const isEmployeeLogin = path === '/employeeLogin';
-  const activePath = !user && !isLoginPage && !isEmployeeLogin ? '/customerLogin' : path;
+  const homePath = user?.type === 'employee' ? '/employeeHome' : '/';
+  let activePath = Object.hasOwn(routes, path) ? path : homePath;
+  if (!sessionToken && !publicPaths.includes(activePath)) activePath = '/customerLogin';
+  if (user && !publicPaths.includes(activePath)
+      && employeePaths.includes(activePath) !== (user.type === 'employee')) {
+    activePath = homePath;
+  }
 
   useEffect(() => {
-    // Replace guarded URLs so browser Back does not create extra history entries.
     if (window.location.pathname !== activePath) {
       window.history.replaceState({}, '', activePath);
     }
@@ -49,84 +61,73 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  function navigate(nextPath) {
-    if (nextPath !== window.location.pathname) {
-      window.history.pushState({}, '', nextPath);
-    }
+  const navigate = useCallback((nextPath) => {
+    if (nextPath !== window.location.pathname) window.history.pushState({}, '', nextPath);
     setPath(nextPath);
     setLoginResult('');
-  }
+  }, []);
+
+  // Every protected page uses this function with the current session token.
+  const request = useCallback(async (endpoint, options = {}) => {
+    try {
+      return await apiRequest(endpoint, { ...options, sessionToken });
+    } catch (error) {
+      if (error.status === 401) {
+        setUser(null);
+        setSessionToken(null);
+        navigate('/customerLogin');
+        setLoginResult('Your session expired. Please log in again.');
+      }
+      throw error;
+    }
+  }, [sessionToken, navigate]);
 
   async function submitLogin(event) {
     event.preventDefault();
     const isEmployee = activePath === '/employeeLogin';
-    const form = event.currentTarget
-    const fields = new FormData(form);
-    const username = fields.get(isEmployee ? 'tUsername' : 'cEmail');
+    const fields = new FormData(event.currentTarget);
+    const identifier = fields.get(isEmployee ? 'tUsername' : 'cEmail');
     const password = fields.get(isEmployee ? 'tPassword' : 'cPassword');
-
-    const endpoint = isEmployee ? '/api/auth/employees/login' : '/api/auth/customers/login';
-    const body = isEmployee ? {username: username, password } : {email: username, password }; // employee login uses username, customer login uses email
-    
-    try 
-    {
-      const response = await fetch(endpoint, {                                                                                                                                                                                                                                                                                                                                                                                                                                                                 
+    try {
+      const data = await apiRequest(`/auth/${isEmployee ? 'employees' : 'customers'}/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
+        body: isEmployee ? { username: identifier, password } : { email: identifier, password },
       });
-      const data = await response.json();
-
-      if (!response.ok) 
-      {
-        setLoginResult(data.error || 'Login failed due to incorrect login credentials');
-        return;  
-      }
-
-    // data = message from backend, session token, expires at , employee or customer
-      setUser(data.customer?.email ?? data.employee?.username ?? '');
-
+      setUser({ ...(isEmployee ? data.employee : data.customer), type: isEmployee ? 'employee' : 'customer' });
       setSessionToken(data.session_token);
       navigate(isEmployee ? '/employeeHome' : '/');
-
-  } catch {
-    setLoginResult('Unable to reach Server')
+    } catch (error) {
+      setLoginResult(error.message);
     }
   }
 
   async function logout() {
     let logoutFailed = false;
-    if(sessionToken)
-    {
-      try{
-        const response = await fetch('/api/auth/logout', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${sessionToken}` },
-        });
-        logoutFailed = !response.ok;
-      }catch{ logoutFailed = true; }
+    if (sessionToken) {
+      try {
+        await apiRequest('/auth/logout', { method: 'POST', sessionToken });
+      } catch {
+        logoutFailed = true;
+      }
     }
-    setUser('');
+    setUser(null);
     setSessionToken(null);
     navigate('/customerLogin');
-    if (logoutFailed) {
-      setLoginResult('Signed out in-browser, but the server session could not be ended.');
-    }
+    if (logoutFailed) setLoginResult('Signed out in-browser, but the server session could not be ended.');
   }
 
-  const Page = Object.hasOwn(routes, activePath) ? routes[activePath] : HomePage;
-
+  const Page = routes[activePath];
   return (
     <Page
       key={activePath}
       user={user}
-      sessionToken={sessionToken}
+      request={request}
+      registrationType={activePath === '/employeeRegister' ? 'employees' : 'customers'}
       loginResult={loginResult}
       onSubmit={submitLogin}
       onNavigate={navigate}
       onLogout={logout}
+      onUserChange={setUser}
     />
   );
 }
