@@ -168,8 +168,6 @@ def get_account(account_id):
         return jsonify({"error": "Account not found"}), 404
 
     return jsonify(account_to_json(account)), 200
-
-
 # UPDATE account (employees only; balance changes go through deposit/withdraw)
 @accounts_bp.route("/<int:account_id>", methods=["PUT"])
 @employee_required
@@ -211,8 +209,6 @@ def update_account(account_id):
         return jsonify({"error": "Account not found"}), 404
 
     return jsonify(account_to_json(account)), 200
-
-
 # DELETE account
 @accounts_bp.route("/<int:account_id>", methods=["DELETE"])
 @employee_required
@@ -316,11 +312,22 @@ def deposit(account_id):
                     "error": "Deposit would exceed the maximum account balance"
                 }), 400
 
+            cur.execute(
+                """
+                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
+                VALUES (%s, %s, %s, %s);
+                """,
+                (
+                    updated[0],
+                    user["id"] if user["type"] == "customer" else None,
+                    user["id"] if user["type"] == "employee" else None,
+                    amount,
+                ),
+            )
+
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
-
-
 # WITHDRAW
 @accounts_bp.route("/<int:account_id>/withdraw", methods=["POST"])
 @token_required
@@ -373,9 +380,21 @@ def withdraw(account_id):
 
                 return jsonify({"error": "Insufficient funds"}), 400
 
+            cur.execute(
+                """
+                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
+                VALUES (%s, %s, %s, %s);
+                """,
+                (
+                    updated[0],
+                    user["id"] if user["type"] == "customer" else None,
+                    user["id"] if user["type"] == "employee" else None,
+                    -amount,
+                ),
+            )
+
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
 
 
-# TODO: record deposits/withdrawals once the schema team adds a transactions table.
