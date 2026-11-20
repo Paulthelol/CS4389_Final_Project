@@ -94,3 +94,18 @@ CREATE TRIGGER audit_transactions
 GRANT SELECT, INSERT ON audit_logs TO banking_app;
 GRANT USAGE, SELECT  ON SEQUENCE audit_logs_log_id_seq TO banking_app;
 
+--RLS for audit_logs
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY audit_logs_access ON audit_logs
+    FOR SELECT
+    USING (
+        current_setting('app.current_role',true) = 'admin'
+        OR (
+            current_setting('app.current_role',true) = 'teller'
+            AND employee_id = NULLIF(
+                current_setting('app.current_employee_id',true),''
+            )::BIGINT
+
+            )
+    );
