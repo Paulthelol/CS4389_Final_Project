@@ -44,6 +44,23 @@
 - `used_at`
 - `created_at`
 
+#### audit_logs
+Append-only record of every `INSERT`, `UPDATE`, and `DELETE` on sensitive tables. Written automatically by database triggers.
+
+- `log_id`
+- `table_name` — which table was changed (`employees`, `customers`, `accounts`, `transactions`)
+- `operation` — `INSERT`, `UPDATE`, or `DELETE`
+- `record_id` — primary key of the affected row
+- `old_data` — full row snapshot before the change as JSONB (`NULL` for inserts); `password_hash` is stripped
+- `new_data` — full row snapshot after the change as JSONB (`NULL` for deletes); `password_hash` is stripped
+- `app_role` — session role at the time of the change (`admin`, `teller`, or `customer`)
+- `employee_id` — set when an employee session was active
+- `customer_id` — set when a customer session was active
+- `db_user` — PostgreSQL login role that executed the statement (e.g. `banking_app`)
+- `created_at`
+
+`banking_app` has `SELECT` and `INSERT` only — `UPDATE` and `DELETE` are withheld so audit records cannot be erased through the web application.
+
 ## Row-level security
 
 For authenticated requests, the backend sets transaction-local PostgreSQL
@@ -75,6 +92,17 @@ underlying tables still apply.
 
 `banking_app` has `SELECT` only on these views; writes go to the base tables.
 
+## Audit triggers
+
+`06_audit_log.sql` registers an `AFTER INSERT OR UPDATE OR DELETE` trigger on each sensitive table. All four triggers call the same `fn_audit_log()` function, which is a `SECURITY DEFINER` function owned by the superuser so it can always write to `audit_logs` regardless of the caller's privileges. The primary key column name is passed as `TG_ARGV[0]` so a single function handles all tables.
+
+| Trigger | Table watched |
+| :--- | :--- |
+| `audit_employees` | `employees` |
+| `audit_customers` | `customers` |
+| `audit_accounts` | `accounts` |
+| `audit_transactions` | `transactions` |
+
 ## Relationships
 
 - Customer `1 → 0..*` Account
@@ -84,6 +112,7 @@ underlying tables still apply.
 - Employee `1 → 0..*` Session
 - Customer `1 → 0..*` Session
 - Customer `1 → 0..*` Customer setup token
+- Employee, Customer, Account, Transaction `→` AuditLog (via triggers)
 
 ## UML Class Diagram
 ```mermaid
@@ -146,4 +175,20 @@ Employee "1" --> "0..*" Transaction : performs
 Employee "1" --> "0..*" Session : has
 Customer "1" --> "0..*" Session : has
 Customer "1" --> "0..*" CustomerSetupToken : receives
+Employee "1" --> "0..*" AuditLog : logged in
+Customer "1" --> "0..*" AuditLog : logged in
+
+class AuditLog {
+    +BIGINT log_id PK
+    +VARCHAR table_name
+    +VARCHAR operation
+    +BIGINT record_id
+    +JSONB old_data
+    +JSONB new_data
+    +VARCHAR app_role
+    +BIGINT employee_id FK?
+    +BIGINT customer_id FK?
+    +TEXT db_user
+    +TIMESTAMPTZ created_at
+}
 ```

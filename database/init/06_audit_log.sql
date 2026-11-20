@@ -21,7 +21,8 @@ CREATE INDEX idx_audit_created_at  ON audit_logs (created_at);
 CREATE OR REPLACE FUNCTION fn_audit_log()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER   -- runs as the function owner (superuser), so it can always write to logs
+--runs as superuser
+SECURITY DEFINER   
 SET search_path = public
 AS $$
 DECLARE
@@ -32,7 +33,7 @@ DECLARE
     v_emp_id     BIGINT;
     v_cust_id    BIGINT;
 BEGIN
-    -- Read application session variables (empty string → NULL)
+    -- Read application session variables
     v_role    := NULLIF(current_setting('app.current_role',        true), '');
     v_emp_id  := NULLIF(current_setting('app.current_employee_id', true), '')::BIGINT;
     v_cust_id := NULLIF(current_setting('app.current_customer_id', true), '')::BIGINT;
@@ -40,7 +41,7 @@ BEGIN
     IF TG_OP = 'INSERT' THEN
         v_new_data  := to_jsonb(NEW);
         v_old_data  := NULL;
-        -- Derive the primary key from the new row's first column by convention;
+        -- Derive the primary key from the new row's first column by convention
         EXECUTE format('SELECT ($1).%I::BIGINT', TG_ARGV[0]) INTO v_record_id USING NEW;
 
     ELSIF TG_OP = 'UPDATE' THEN
