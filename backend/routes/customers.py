@@ -327,3 +327,31 @@ def delete_customer(customer_id):
         return jsonify({"error": "Customer not found"}), 404
 
     return jsonify({"message": "Customer deleted"}), 200
+
+
+
+# VULNERABLE DEMO: SQL injection
+@customers_bp.route("/vulnerable/search", methods=["GET"])
+@employee_required
+def vulnerable_customer_search():
+    if not current_app.config.get("DEMO_MODE", False):
+        return jsonify({"error": "Demo endpoint is disabled"}), 404
+
+    name = request.args.get("name", "").strip()
+
+    if not name:
+        return jsonify({"error": "A name search parameter is required"}), 400
+
+    with get_customer_connection() as conn:
+        with conn.cursor() as cur:
+            # User input is directly interpolated into the SQL query.
+            query = f"""
+                SELECT customer_id, first_name, last_name, ssn, email
+                FROM customers_masked
+                WHERE first_name = '{name}';
+            """
+
+            cur.execute(query)
+            customers = cur.fetchall()
+
+    return jsonify([customer_to_json(row) for row in customers]), 200
