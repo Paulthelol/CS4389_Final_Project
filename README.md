@@ -2,6 +2,53 @@
 
 A banking application with a React/Vite frontend, a Flask backend, and PostgreSQL.
 
+## Class Demo Quickstart
+
+The demo uses Docker Desktop, Python, and Node.js 24. Open Windows
+PowerShell in the repository root and start both demo databases and Vite.
+
+```powershell
+docker compose -f .devcontainer/docker-compose.demo-db.yml up -d --wait
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run dev -- --host 127.0.0.1
+```
+
+In a second host PowerShell terminal at the repository root, start Flask against
+the **insecure database comparison** first. Flask authentication and account
+ownership checks are enabled in both runs.
+
+```powershell
+$env:DEMO_MODE = 'true'
+$env:API_SECURITY_ENABLED = 'true'
+$env:DB_HOST = '127.0.0.1'
+$env:DB_PORT = '55432'
+$env:DB_ACCESS_MODE = 'superuser'
+.\.venv\Scripts\python.exe -m flask --env-file .env.example --app backend/app.py:create_app run --host 127.0.0.1 --port 5000
+```
+
+Open [localhost:5173](http://127.0.0.1:5173). Sign in as a customer with
+`alice@example.com` / `alice`, or choose **Employee Login** and sign in with
+`admin1` / `admin1`.
+
+To switch to the **secure database**, sign out in the browser and press
+**Ctrl+C** in the Flask terminal. Run these commands in that same terminal,
+then sign in again.
+
+```powershell
+$env:DB_PORT = '55431'
+$env:DB_ACCESS_MODE = 'appuser'
+.\.venv\Scripts\python.exe -m flask --env-file .env.example --app backend/app.py:create_app run --host 127.0.0.1 --port 5000
+```
+
+Vite and both databases stay up during the switch.
+
+When finished, stop Flask and Vite with **Ctrl+C**. Run
+`docker compose -f .devcontainer/docker-compose.demo-db.yml down` to remove
+the demo containers and discard their temporary data.
+
+
 ## Development container
 
 Requirements: Docker with Compose 2.24 or newer, VS Code, and the Dev Containers
