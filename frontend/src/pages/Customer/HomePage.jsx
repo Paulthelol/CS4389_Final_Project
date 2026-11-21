@@ -32,6 +32,7 @@ export default function HomePage({ user, request, onNavigate, onLogout }) {
       {profile && <p>Customer ID: {profile.customer_id} · Email: {profile.email} · SSN: {profile.ssn}</p>}
       <p role="status">{message}</p>
       <button onClick={() => onNavigate('/balance')}>View account and manage funds</button><br /><br />
+      <button onClick={() => onNavigate('/statement')}>View account statement</button><br /><br />
       <button onClick={onLogout}>Log out</button>
       <button disabled={busy || !profile} onClick={deleteProfile}>Delete my profile</button>
     </>

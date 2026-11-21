@@ -184,6 +184,43 @@ def get_account(account_id):
         return jsonify({"error": "Account not found"}), 404
 
     return jsonify(account_to_json(account)), 200
+
+# READ account transactions
+@accounts_bp.route("/<int:account_id>/transactions", methods=["GET"])
+@token_required
+def get_account_transactions(account_id):
+    user = g.current_user
+
+    with get_account_connection() as conn:
+        with conn.cursor() as cur:
+            # Keep an accessible account with no transactions in the result.
+            cur.execute(
+                """
+                SELECT t.transaction_id, t.created_at, t.amount
+                FROM accounts AS a
+                LEFT JOIN transactions AS t ON t.account_id = a.account_id
+                WHERE a.account_id = %s
+                    AND (%s = 'employee' OR a.customer_id = %s)
+                ORDER BY t.created_at DESC, t.transaction_id DESC;
+                """,
+                (account_id, user["type"], user["id"])
+            )
+            rows = cur.fetchall()
+
+    if not rows:
+        return jsonify({"error": "Account not found"}), 404
+
+    return jsonify([
+        {
+            "transaction_id": transaction_id,
+            "created_at": created_at.isoformat(),
+            "amount": str(amount),
+        }
+        for transaction_id, created_at, amount in rows
+        if transaction_id is not None
+    ]), 200
+
+
 # UPDATE account (employees only; balance changes go through deposit/withdraw)
 @accounts_bp.route("/<int:account_id>", methods=["PUT"])
 @employee_required
