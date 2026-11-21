@@ -1,38 +1,52 @@
-import { useEffect, useState } from 'react';
-import CustomerLoginPage from './pages/CustomerLoginPage.jsx';
-import TellerLoginPage from './pages/TellerLoginPage.jsx';
-import HomePage from './pages/HomePage.jsx';
-import TellerHomePage from './pages/TellerHomePage.jsx';
-import BalancePage from './pages/BalancePage.jsx';
-import TellerBalancePage from './pages/TellerBalancePage.jsx';
-import StatementPage from './pages/StatementPage.jsx';
-import TellerStatementPage from './pages/TellerStatementPage.jsx';
-import LoanPage from './pages/LoanPage.jsx';
-import TellerLoanPage from './pages/LoanPage.jsx';
+import { useCallback, useEffect, useState } from 'react';
+import { apiRequest } from './api.js';
+import CustomerLoginPage from './pages/Customer/CustomerLoginPage.jsx';
+import EmployeeLoginPage from './pages/Employee/EmployeeLoginPage.jsx';
+import HomePage from './pages/Customer/HomePage.jsx';
+import EmployeeHomePage from './pages/Employee/EmployeeHomePage.jsx';
+import BalancePage from './pages/Customer/BalancePage.jsx';
+import EmployeeBalancePage from './pages/Employee/EmployeeBalancePage.jsx';
+import CustomersPage from './pages/Employee/CustomersPage.jsx';
+import EmployeesPage from './pages/Employee/EmployeesPage.jsx';
+import RegistrationPage from './pages/RegistrationPage.jsx';
+import StatementPage from './pages/Customer/StatementPage.jsx';
+import EmployeeStatementPage from './pages/Employee/EmployeeStatementPage.jsx';
+import LoanPage from './pages/Customer/LoanPage.jsx';
+import EmployeeLoanPage from './pages/Employee/EmployeeLoanPage.jsx';
 
-// Each route has its own page skeleton; layout and markup live in src/pages/.
 const routes = {
   '/customerLogin': CustomerLoginPage,
-  '/tellerLogin': TellerLoginPage,
+  '/employeeLogin': EmployeeLoginPage,
+  '/customerRegister': RegistrationPage,
+  '/employeeRegister': RegistrationPage,
   '/': HomePage,
-  '/tellerHome': TellerHomePage,
+  '/employeeHome': EmployeeHomePage,
   '/balance': BalancePage,
-  '/tellerBalances': TellerBalancePage,
+  '/employeeBalances': EmployeeBalancePage,
+  '/customers': CustomersPage,
+  '/employees': EmployeesPage,
   '/statement': StatementPage,
-  '/tellerStatements': TellerStatementPage,
+  '/employeeStatements': EmployeeStatementPage,
   '/userLoans': LoanPage,
-  '/tellerLoans': TellerLoanPage,
+  '/employeeLoans': EmployeeLoanPage,
 };
+const publicPaths = ['/customerLogin', '/employeeLogin', '/customerRegister', '/employeeRegister'];
+const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements', '/employeeLoans'];
 
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
-  const [user, setUser] = useState('');
+  const [user, setUser] = useState(null);
   const [loginResult, setLoginResult] = useState('');
-  const isLoginPage = path === '/customerLogin' || path === '/tellerLogin';
-  const activePath = !user && !isLoginPage ? '/customerLogin' : path;
+  const [sessionToken, setSessionToken] = useState(null);
+  const homePath = user?.type === 'employee' ? '/employeeHome' : '/';
+  let activePath = Object.hasOwn(routes, path) ? path : homePath;
+  if (!sessionToken && !publicPaths.includes(activePath)) activePath = '/customerLogin';
+  if (user && !publicPaths.includes(activePath)
+      && employeePaths.includes(activePath) !== (user.type === 'employee')) {
+    activePath = homePath;
+  }
 
   useEffect(() => {
-    // Replace guarded URLs so browser Back does not create extra history entries.
     if (window.location.pathname !== activePath) {
       window.history.replaceState({}, '', activePath);
     }
@@ -47,67 +61,73 @@ export default function App() {
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
-  function navigate(nextPath) {
-    if (nextPath !== window.location.pathname) {
-      window.history.pushState({}, '', nextPath);
-    }
+  const navigate = useCallback((nextPath) => {
+    if (nextPath !== window.location.pathname) window.history.pushState({}, '', nextPath);
     setPath(nextPath);
     setLoginResult('');
-  }
+  }, []);
 
-  function submitLogin(event) {
+  // Every protected page uses this function with the current session token.
+  const request = useCallback(async (endpoint, options = {}) => {
+    try {
+      return await apiRequest(endpoint, { ...options, sessionToken });
+    } catch (error) {
+      if (error.status === 401) {
+        setUser(null);
+        setSessionToken(null);
+        navigate('/customerLogin');
+        setLoginResult('Your session expired. Please log in again.');
+      }
+      throw error;
+    }
+  }, [sessionToken, navigate]);
+
+  async function submitLogin(event) {
     event.preventDefault();
-    const employee = activePath === '/tellerLogin';
-    const prefix = employee ? 't' : 'c';
+    const isEmployee = activePath === '/employeeLogin';
     const fields = new FormData(event.currentTarget);
-    const username = fields.get(`${prefix}Username`);
-    const password = fields.get(`${prefix}Password`);
-
-    // TODO: Replace temporary frontend client auth with backend authentication.
-    if (
-      username === 'Customer' && password === 'cPassword123' &&
-      (!employee || fields.get('employeeId') === '00')
-    ) {
-      setUser(username);
-      navigate('/');
-    } else {
-      setLoginResult('Login failed due to incorrect login credentials');
-    }
-    if (
-      username === 'Teller' && password === 'tPassword123' &&
-      (!employee || fields.get('employeeId') === '01')
-    ) {
-      setUser(username);
-      navigate('/tellerHome');
-    } else {
-      setLoginResult('Login failed due to incorrect login credentials');
-    }
-    if (
-      username === 'Admin' && password === 'aPassword123' &&
-      (!employee || fields.get('employeeId') === '00')
-    ) {
-      setUser(username);
-      navigate('/tellerHome');
-    } else {
-      setLoginResult('Login failed due to incorrect login credentials');
+    const identifier = fields.get(isEmployee ? 'tUsername' : 'cEmail');
+    const password = fields.get(isEmployee ? 'tPassword' : 'cPassword');
+    try {
+      const data = await apiRequest(`/auth/${isEmployee ? 'employees' : 'customers'}/login`, {
+        method: 'POST',
+        body: isEmployee ? { username: identifier, password } : { email: identifier, password },
+      });
+      setUser({ ...(isEmployee ? data.employee : data.customer), type: isEmployee ? 'employee' : 'customer' });
+      setSessionToken(data.session_token);
+      navigate(isEmployee ? '/employeeHome' : '/');
+    } catch (error) {
+      setLoginResult(error.message);
     }
   }
 
-  function logout() {
-    setUser('');
+  async function logout() {
+    let logoutFailed = false;
+    if (sessionToken) {
+      try {
+        await apiRequest('/auth/logout', { method: 'POST', sessionToken });
+      } catch {
+        logoutFailed = true;
+      }
+    }
+    setUser(null);
+    setSessionToken(null);
     navigate('/customerLogin');
+    if (logoutFailed) setLoginResult('Signed out in-browser, but the server session could not be ended.');
   }
 
-  const Page = Object.hasOwn(routes, activePath) ? routes[activePath] : HomePage;
-
+  const Page = routes[activePath];
   return (
     <Page
       key={activePath}
       user={user}
+      request={request}
+      registrationType={activePath === '/employeeRegister' ? 'employees' : 'customers'}
       loginResult={loginResult}
       onSubmit={submitLogin}
       onNavigate={navigate}
       onLogout={logout}
+      onUserChange={setUser}
     />
   );
 }

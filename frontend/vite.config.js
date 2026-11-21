@@ -12,6 +12,10 @@ export default defineConfig({
       usePolling: process.env.VITE_USE_POLLING === 'true',
     },
     proxy: {
+      '/auth': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,

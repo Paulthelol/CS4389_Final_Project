@@ -4,7 +4,7 @@ from functools import wraps
 
 from flask import current_app, g, jsonify, request
 
-from database import get_connection
+from database.connection import get_pre_auth_connection
 
 
 def token_required(func):
@@ -32,7 +32,7 @@ def token_required(func):
         token_hash = hashlib.sha256(parts[1].encode()).hexdigest()
 
         # Find the session and associated user.
-        with get_connection() as conn:
+        with get_pre_auth_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """

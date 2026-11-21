@@ -1,0 +1,32 @@
+name: cs4389-demo-databases
+
+x-demo-db: &demo-db
+  image: postgres:17
+  env_file: ../.env.example
+  volumes:
+    - ../database/init:/docker-entrypoint-initdb.d:ro
+  tmpfs:
+    - /var/lib/postgresql/data
+  healthcheck:
+    test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+    interval: 2s
+    timeout: 3s
+    retries: 15
+
+services:
+  secure-db:
+    <<: *demo-db
+    environment:
+      PGDATABASE: appdb
+      PGUSER: banking_app
+    ports:
+      - "127.0.0.1:55431:5432"
+
+  insecure-db:
+    <<: *demo-db
+    # The superuser is the comparison baseline. Both services install the same policies.
+    environment:
+      PGDATABASE: appdb
+      PGUSER: postgres
+    ports:
+      - "127.0.0.1:55432:5432"

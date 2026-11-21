@@ -1,5 +1,4 @@
 import os
-import psycopg
 from dotenv import load_dotenv
 from flask import Flask, jsonify
 from werkzeug.exceptions import HTTPException
@@ -57,12 +56,6 @@ def create_app():
     # Automatically register exported Blueprints
     for name in routes.__all__:
         app.register_blueprint(getattr(routes, name))
-
-    # Handle unexpected database errors.
-    @app.errorhandler(psycopg.Error)
-    def handle_database_error(error):
-        app.logger.exception("Unexpected database error")
-        return jsonify({"error": ERROR_MESSAGE}), 500
 
     # Handle other unexpected application errors.
     @app.errorhandler(Exception)

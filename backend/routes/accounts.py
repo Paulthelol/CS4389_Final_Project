@@ -77,6 +77,22 @@ def get_masked_account(cur, account_id):
     return cur.fetchone()
 
 
+def record_transaction(cur, account_id, user, amount):
+    cur.execute(
+        """
+        INSERT INTO transactions (account_id, customer_id, employee_id, amount, is_demo)
+        VALUES (%s, %s, %s, %s, %s);
+        """,
+        (
+            account_id,
+            user["id"] if user["type"] == "customer" else None,
+            user["id"] if user["type"] == "employee" else None,
+            amount,
+            not current_app.config["API_SECURITY_ENABLED"],
+        ),
+    )
+
+
 # CREATE account
 @accounts_bp.route("", methods=["POST"])
 @employee_required
@@ -168,6 +184,43 @@ def get_account(account_id):
         return jsonify({"error": "Account not found"}), 404
 
     return jsonify(account_to_json(account)), 200
+
+# READ account transactions
+@accounts_bp.route("/<int:account_id>/transactions", methods=["GET"])
+@token_required
+def get_account_transactions(account_id):
+    user = g.current_user
+
+    with get_account_connection() as conn:
+        with conn.cursor() as cur:
+            # Keep an accessible account with no transactions in the result.
+            cur.execute(
+                """
+                SELECT t.transaction_id, t.created_at, t.amount
+                FROM accounts AS a
+                LEFT JOIN transactions AS t ON t.account_id = a.account_id
+                WHERE a.account_id = %s
+                    AND (%s = 'employee' OR a.customer_id = %s)
+                ORDER BY t.created_at DESC, t.transaction_id DESC;
+                """,
+                (account_id, user["type"], user["id"])
+            )
+            rows = cur.fetchall()
+
+    if not rows:
+        return jsonify({"error": "Account not found"}), 404
+
+    return jsonify([
+        {
+            "transaction_id": transaction_id,
+            "created_at": created_at.isoformat(),
+            "amount": str(amount),
+        }
+        for transaction_id, created_at, amount in rows
+        if transaction_id is not None
+    ]), 200
+
+
 # UPDATE account (employees only; balance changes go through deposit/withdraw)
 @accounts_bp.route("/<int:account_id>", methods=["PUT"])
 @employee_required
@@ -312,19 +365,7 @@ def deposit(account_id):
                     "error": "Deposit would exceed the maximum account balance"
                 }), 400
 
-            cur.execute(
-                """
-                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
-                VALUES (%s, %s, %s, %s);
-                """,
-                (
-                    updated[0],
-                    user["id"] if user["type"] == "customer" else None,
-                    user["id"] if user["type"] == "employee" else None,
-                    amount,
-                ),
-            )
-
+            record_transaction(cur, updated[0], user, amount)
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
@@ -380,19 +421,7 @@ def withdraw(account_id):
 
                 return jsonify({"error": "Insufficient funds"}), 400
 
-            cur.execute(
-                """
-                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
-                VALUES (%s, %s, %s, %s);
-                """,
-                (
-                    updated[0],
-                    user["id"] if user["type"] == "customer" else None,
-                    user["id"] if user["type"] == "employee" else None,
-                    -amount,
-                ),
-            )
-
+            record_transaction(cur, updated[0], user, -amount)
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
