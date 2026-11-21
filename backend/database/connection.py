@@ -26,8 +26,8 @@ def get_connection():
         db_password = os.getenv("POSTGRES_APP_PASSWORD")
 
     elif access_mode == "superuser":
-        db_user = os.getenv("POSTGRES_SUPERUSER")
-        db_password = os.getenv("POSTGRES_SUPERUSER_PASSWORD")
+        db_user = os.getenv("POSTGRES_USER")
+        db_password = os.getenv("POSTGRES_PASSWORD")
 
     else:
         raise RuntimeError(

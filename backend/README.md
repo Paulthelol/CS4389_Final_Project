@@ -70,8 +70,8 @@ API_SECURITY_ENABLED=true
 DB_ACCESS_MODE=appuser
 
 # PostgreSQL superuser credentials
-POSTGRES_SUPERUSER=postgres
-POSTGRES_SUPERUSER_PASSWORD=changeme
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=changeme
 
 # Restricted application database credentials
 POSTGRES_APP_USER=banking_app
@@ -95,8 +95,8 @@ The environment variables control the following settings:
 | `DEMO_MODE` | Enables or disables demo-specific application behavior and data |
 | `API_SECURITY_ENABLED` | Enables or disables API authentication and authorization enforcement |
 | `DB_ACCESS_MODE` | Selects the database connection credentials: `appuser` or `superuser` |
-| `POSTGRES_SUPERUSER` | PostgreSQL administrative username |
-| `POSTGRES_SUPERUSER_PASSWORD` | PostgreSQL administrative password |
+| `POSTGRES_USER` | PostgreSQL administrative username |
+| `POSTGRES_PASSWORD` | PostgreSQL administrative password |
 | `POSTGRES_APP_USER` | Restricted application database username |
 | `POSTGRES_APP_PASSWORD` | Restricted application database password |
 | `POSTGRES_DB` | PostgreSQL database name |
@@ -179,13 +179,13 @@ PostgreSQL initialization scripts are executed when the database volume is first
 To verify the database connection and inspect available tables, run the following inside the Dev Container:
 
 ```bash
-psql -h localhost -U "$POSTGRES_SUPERUSER" -d "$POSTGRES_DB" -c '\dt'
+psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dt'
 ```
 
 To inspect the configured views:
 
 ```bash
-psql -h localhost -U "$POSTGRES_SUPERUSER" -d "$POSTGRES_DB" -c '\dv'
+psql -h localhost -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c '\dv'
 ```
 
 The `database/reset-db.sh` script can be used to reset the development database and rerun the initialization scripts. **This operation deletes the existing PostgreSQL data volume and its contents.**
