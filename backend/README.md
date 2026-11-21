@@ -278,7 +278,7 @@ Account numbers are masked in API responses using the `accounts_masked` database
 
 Deposit and withdrawal operations validate monetary amounts and enforce account balance limits. Withdrawals use an atomic database update to prevent concurrent requests from overdrawing an account.
 
-Deposits and withdrawals currently update account balances but do not create transaction-history records. Transaction recording is planned for a future implementation.
+Deposits and withdrawals record a transaction in the same database operation as the balance change. Insecure demo requests are marked `is_demo` and have no employee or customer actor.
 
 ## Authentication and Authorization
 

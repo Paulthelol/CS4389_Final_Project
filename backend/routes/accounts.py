@@ -77,6 +77,22 @@ def get_masked_account(cur, account_id):
     return cur.fetchone()
 
 
+def record_transaction(cur, account_id, user, amount):
+    cur.execute(
+        """
+        INSERT INTO transactions (account_id, customer_id, employee_id, amount, is_demo)
+        VALUES (%s, %s, %s, %s, %s);
+        """,
+        (
+            account_id,
+            user["id"] if user["type"] == "customer" else None,
+            user["id"] if user["type"] == "employee" else None,
+            amount,
+            not current_app.config["API_SECURITY_ENABLED"],
+        ),
+    )
+
+
 # CREATE account
 @accounts_bp.route("", methods=["POST"])
 @employee_required
@@ -312,19 +328,7 @@ def deposit(account_id):
                     "error": "Deposit would exceed the maximum account balance"
                 }), 400
 
-            cur.execute(
-                """
-                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
-                VALUES (%s, %s, %s, %s);
-                """,
-                (
-                    updated[0],
-                    user["id"] if user["type"] == "customer" else None,
-                    user["id"] if user["type"] == "employee" else None,
-                    amount,
-                ),
-            )
-
+            record_transaction(cur, updated[0], user, amount)
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
@@ -380,19 +384,7 @@ def withdraw(account_id):
 
                 return jsonify({"error": "Insufficient funds"}), 400
 
-            cur.execute(
-                """
-                INSERT INTO transactions (account_id, customer_id, employee_id, amount)
-                VALUES (%s, %s, %s, %s);
-                """,
-                (
-                    updated[0],
-                    user["id"] if user["type"] == "customer" else None,
-                    user["id"] if user["type"] == "employee" else None,
-                    -amount,
-                ),
-            )
-
+            record_transaction(cur, updated[0], user, -amount)
             account = get_masked_account(cur, updated[0])
 
     return jsonify(account_to_json(account)), 200
