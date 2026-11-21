@@ -427,3 +427,28 @@ def withdraw(account_id):
     return jsonify(account_to_json(account)), 200
 
 
+# VULNERABLE DEMO: SQL injection
+@accounts_bp.route("/vulnerable/search", methods=["GET"])
+@employee_required
+def vulnerable_account_search():
+    if not current_app.config.get("DEMO_MODE", False):
+        return jsonify({"error": "Demo endpoint is disabled"}), 404
+
+    name = request.args.get("name", "").strip()
+
+    if not name:
+        return jsonify({"error": "A name search parameter is required"}), 400
+
+    with get_account_connection() as conn:
+        with conn.cursor() as cur:
+            # User input is directly interpolated into the SQL query.
+            query = f"""
+                SELECT account_id, customer_id, account_number, balance
+                FROM accounts_masked
+                WHERE account_number = '{name}';
+            """
+
+            cur.execute(query)
+            accounts = cur.fetchall()
+
+    return jsonify([account_to_json(row) for row in accounts]), 200

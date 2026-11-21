@@ -214,3 +214,30 @@ def delete_employee(employee_id):
         return jsonify({"error": "Employee not found"}), 404
 
     return jsonify({"message": "Employee has been deleted"}), 200
+
+
+# VULNERABLE DEMO: SQL injection
+@employees_bp.route("/vulnerable/search", methods=["GET"])
+@employee_required
+def vulnerable_employee_search():
+    if not current_app.config.get("DEMO_MODE", False):
+        return jsonify({"error": "Demo endpoint is disabled"}), 404
+
+    name = request.args.get("name", "").strip()
+
+    if not name:
+        return jsonify({"error": "A name search parameter is required"}), 400
+
+    with get_employee_connection() as conn:
+        with conn.cursor() as cur:
+            # User input is directly interpolated into the SQL query.
+            query = f"""
+                SELECT employee_id, username, role
+                FROM employees
+                WHERE username = '{name}';
+            """
+
+            cur.execute(query)
+            employees = cur.fetchall()
+
+    return jsonify([employee_to_json(row) for row in employees]), 200
