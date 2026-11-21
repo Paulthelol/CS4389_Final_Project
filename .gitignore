@@ -1,6 +1,9 @@
 dist/
 *.log
 
+# VS Code
+/.vscode/launch.json
+
 # Environment variables
 .env
 .env.*
