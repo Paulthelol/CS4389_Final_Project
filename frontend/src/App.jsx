@@ -11,7 +11,7 @@ import EmployeesPage from './pages/Employee/EmployeesPage.jsx';
 import RegistrationPage from './pages/RegistrationPage.jsx';
 import StatementPage from './pages/Customer/StatementPage.jsx';
 import EmployeeStatementPage from './pages/Employee/EmployeeStatementPage.jsx';
-
+import DemoSearchPage from './pages/Employee/DemoSearchPage.jsx';
 
 const routes = {
   '/customerLogin': CustomerLoginPage,
@@ -25,18 +25,50 @@ const routes = {
   '/customers': CustomersPage,
   '/employees': EmployeesPage,
   '/statement': StatementPage,
-  '/employeeStatements': EmployeeStatementPage
+  '/employeeStatements': EmployeeStatementPage,
+  '/demoSearch': DemoSearchPage,
 };
 const publicPaths = ['/customerLogin', '/employeeLogin', '/customerRegister', '/employeeRegister'];
-const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements'];
+const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements', '/demoSearch'];
 
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
   const [user, setUser] = useState(null);
   const [loginResult, setLoginResult] = useState('');
   const [sessionToken, setSessionToken] = useState(null);
+  const [demoStatus, setDemoStatus] = useState(null);
+  const demoMode = demoStatus?.demo_mode === true;
+  const demoSecurityDisabled = demoMode && demoStatus.api_security_enabled === false;
   const homePath = user?.type === 'employee' ? '/employeeHome' : '/';
+
+  const navigate = useCallback((nextPath) => {
+    if (nextPath !== window.location.pathname) window.history.pushState({}, '', nextPath);
+    setPath(nextPath);
+    setLoginResult('');
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiRequest('/auth/demo/status', { signal: controller.signal })
+      .then(status => {
+        setDemoStatus(status);
+        if (status.demo_mode === true && status.api_security_enabled === false) {
+          setUser({
+            employee_id: null,
+            username: 'demo-admin',
+            role: 'admin',
+            type: 'employee',
+          });
+          setSessionToken('demo');
+          navigate('/employeeHome');
+        }
+      })
+      .catch(() => setDemoStatus(null));
+    return () => controller.abort();
+  }, [navigate]);
+
   let activePath = Object.hasOwn(routes, path) ? path : homePath;
+  if (!demoMode && activePath === '/demoSearch') activePath = homePath;
   if (!sessionToken && !publicPaths.includes(activePath)) activePath = '/customerLogin';
   if (user && !publicPaths.includes(activePath)
       && employeePaths.includes(activePath) !== (user.type === 'employee')) {
@@ -56,12 +88,6 @@ export default function App() {
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
-
-  const navigate = useCallback((nextPath) => {
-    if (nextPath !== window.location.pathname) window.history.pushState({}, '', nextPath);
-    setPath(nextPath);
-    setLoginResult('');
   }, []);
 
   // Every protected page uses this function with the current session token.
@@ -107,6 +133,17 @@ export default function App() {
         logoutFailed = true;
       }
     }
+    if (demoSecurityDisabled) {
+      setUser({
+        employee_id: null,
+        username: 'demo-admin',
+        role: 'admin',
+        type: 'employee',
+      });
+      setSessionToken('demo');
+      navigate('/employeeHome');
+      return;
+    }
     setUser(null);
     setSessionToken(null);
     navigate('/customerLogin');
@@ -119,6 +156,7 @@ export default function App() {
       key={activePath}
       user={user}
       request={request}
+      demoMode={demoMode}
       registrationType={activePath === '/employeeRegister' ? 'employees' : 'customers'}
       loginResult={loginResult}
       onSubmit={submitLogin}

@@ -1,4 +1,4 @@
-export default function EmployeeHomePage({ user, onNavigate, onLogout }) {
+export default function EmployeeHomePage({ user, onNavigate, onLogout, demoMode }) {
   return (
     <>
       <h1>Hello employee {user.username}</h1>
@@ -8,6 +8,9 @@ export default function EmployeeHomePage({ user, onNavigate, onLogout }) {
       <button onClick={() => onNavigate('/employeeStatements')}>View account statements</button><br /><br />
       <button onClick={() => onNavigate('/customers')}>Manage customers and setup tokens</button><br /><br />
       <button onClick={() => onNavigate('/employees')}>{user.role === 'admin' ? 'Manage employees and invitations' : 'My employee profile'}</button><br /><br />
+      {demoMode && <>
+        <button onClick={() => onNavigate('/demoSearch')}>Run database demo searches</button><br /><br />
+      </>}
       <button onClick={onLogout}>Log out</button>
     </>
   );

@@ -28,15 +28,22 @@ $env:DB_ACCESS_MODE = 'superuser'
 .\.venv\Scripts\python.exe -m flask --env-file .env.example --app backend/app.py:create_app run --host 127.0.0.1 --port 5000
 ```
 
+For the fully insecure class-demo mode, set
+`$env:API_SECURITY_ENABLED = 'false'` instead. The website will detect this
+setting, open directly in the employee interface as a demo administrator, and
+provide the three intentionally vulnerable search endpoints under
+**Run database demo searches**. See [DEMO.md](DEMO.md) for the full walkthrough.
+
 Open [localhost:5173](http://127.0.0.1:5173). Sign in as a customer with
 `alice@example.com` / `alice`, or choose **Employee Login** and sign in with
 `admin1` / `admin1`.
 
-To switch to the **secure database**, sign out in the browser and press
-**Ctrl+C** in the Flask terminal. Run these commands in that same terminal,
-then sign in again.
+To switch to the **secure database**, press **Ctrl+C** in the Flask terminal.
+Run these commands in that same terminal, refresh the browser, and sign in.
 
 ```powershell
+$env:DEMO_MODE = 'false'
+$env:API_SECURITY_ENABLED = 'true'
 $env:DB_PORT = '55431'
 $env:DB_ACCESS_MODE = 'appuser'
 .\.venv\Scripts\python.exe -m flask --env-file .env.example --app backend/app.py:create_app run --host 127.0.0.1 --port 5000
