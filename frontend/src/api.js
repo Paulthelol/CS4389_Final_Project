@@ -1,5 +1,5 @@
 const publicEndpoints = new Set([
-  '/auth/employees/login', '/auth/employees/register',
+  '/auth/demo/status', '/auth/employees/login', '/auth/employees/register',
   '/auth/customers/login', '/auth/customers/register',
 ]);
 

@@ -14,6 +14,15 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 password_hasher = PasswordHasher()
 
 
+@auth_bp.route("/demo/status", methods=["GET"])
+def demo_status():
+    """Report demo security settings for the frontend demo startup."""
+    return jsonify({
+        "demo_mode": current_app.config["DEMO_MODE"],
+        "api_security_enabled": current_app.config["API_SECURITY_ENABLED"]
+    }), 200
+
+
 # EMPLOYEE REGISTER
 @auth_bp.route("/employees/register", methods=["POST"])
 def employee_register():
