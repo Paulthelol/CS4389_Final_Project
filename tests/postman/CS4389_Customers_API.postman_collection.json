@@ -1487,7 +1487,7 @@
                   "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
                   "});",
                   "[\"admin_token\", \"alice_token\", \"new_customer_token\", \"setup_token\", \"new_customer_password\",",
-                  " \"created_ssn\", \"duplicate_ssn\", \"invalid_token\"].forEach((k) => pm.environment.unset(k));"
+                  " \"created_ssn\", \"duplicate_ssn\", \"invalid_token\", \"created_customer_id\"].forEach((k) => pm.environment.unset(k));"
                 ]
               }
             }

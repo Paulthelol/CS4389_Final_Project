@@ -10,7 +10,6 @@ run against the **secure** configuration (`DEMO_MODE=false`,
 | `CS4389_Local_Secure.postman_environment.json` | Environment template. Passwords and tokens are empty |
 | `sanitize-report.js` | Turns a raw Newman JSON report into token-free evidence |
 | `evidence/` | Sanitized results from a real run |
-| `SCREENSHOT_CHECKLIST.md` | Steps for capturing report screenshots in VS Code |
 
 ## What the collection covers
 

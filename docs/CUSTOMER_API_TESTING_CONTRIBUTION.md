@@ -86,16 +86,16 @@ and [`customers_test_summary.md`](../tests/postman/evidence/customers_test_summa
 
 ## Screenshots
 
-Screenshots of the Postman VS Code extension haven't been captured yet,
-because the extension can't be driven automatically. Take them by following
-[`tests/postman/SCREENSHOT_CHECKLIST.md`](../tests/postman/SCREENSHOT_CHECKLIST.md):
+These are taken by hand in the Postman VS Code extension, because the
+extension can't be driven automatically. Tokens are covered in each image.
+They are to be added to `tests/postman/evidence/screenshots/`:
 
-1. `evidence/screenshots/01_admin_login.png`: admin login, 200, token redacted *(not yet captured)*
-2. `evidence/screenshots/02_create_customer.png`: create customer, 201, masked SSN, setup token redacted *(not yet captured)*
-3. `evidence/screenshots/03_get_customer.png`: get customer, 200, masked SSN *(not yet captured)*
-4. `evidence/screenshots/04_patch_customer.png`: PATCH, 200, `O'Connor`, masked SSN *(not yet captured)*
-5. `evidence/screenshots/05_alice_other_customer_404.png`: Alice reads Bob, 404 *(not yet captured)*
-6. `evidence/screenshots/06_alice_list_403.png`: Alice lists customers, 403 *(not yet captured)*
+1. `01_admin_login.png`: admin login, 200, session token redacted
+2. `02_create_customer.png`: create customer, 201, masked SSN, setup token redacted
+3. `03_get_customer.png`: get customer, 200, masked SSN
+4. `04_patch_customer.png`: PATCH, 200, `O'Connor`, masked SSN
+5. `05_alice_other_customer_404.png`: Alice reads Bob, 404
+6. `06_alice_list_403.png`: Alice lists customers, 403
 
 ## Contribution summary (for the final report)
 

@@ -64,9 +64,6 @@ const summary = {
   requests,
 };
 
-fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, "customers_test_results.json"), JSON.stringify(summary, null, 2) + "\n");
-
 const t = summary.totals;
 const md = [
   "# Customers API test summary",
@@ -91,6 +88,17 @@ if (failures.length) {
   }
   md.push("");
 }
-fs.writeFileSync(path.join(outDir, "customers_test_summary.md"), md.join("\n"));
+const json = JSON.stringify(summary, null, 2) + "\n";
+const text = md.join("\n");
+
+// Last line of defense: write nothing if anything token-like slipped through.
+if (/Bearer |[A-Za-z0-9_-]{32,}/.test(json + text)) {
+  console.error("Refusing to write evidence: output contains a token-like value.");
+  process.exit(1);
+}
+
+fs.mkdirSync(outDir, { recursive: true });
+fs.writeFileSync(path.join(outDir, "customers_test_results.json"), json);
+fs.writeFileSync(path.join(outDir, "customers_test_summary.md"), text);
 
 console.log(`PASS ${t.passed} / FAIL ${t.failed} / NOT RUN ${t.not_run} (assertions failed: ${t.assertions_failed})`);
