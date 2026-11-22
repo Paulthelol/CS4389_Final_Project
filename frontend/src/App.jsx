@@ -11,8 +11,7 @@ import EmployeesPage from './pages/Employee/EmployeesPage.jsx';
 import RegistrationPage from './pages/RegistrationPage.jsx';
 import StatementPage from './pages/Customer/StatementPage.jsx';
 import EmployeeStatementPage from './pages/Employee/EmployeeStatementPage.jsx';
-import LoanPage from './pages/Customer/LoanPage.jsx';
-import EmployeeLoanPage from './pages/Employee/EmployeeLoanPage.jsx';
+
 
 const routes = {
   '/customerLogin': CustomerLoginPage,
@@ -26,12 +25,10 @@ const routes = {
   '/customers': CustomersPage,
   '/employees': EmployeesPage,
   '/statement': StatementPage,
-  '/employeeStatements': EmployeeStatementPage,
-  '/userLoans': LoanPage,
-  '/employeeLoans': EmployeeLoanPage,
+  '/employeeStatements': EmployeeStatementPage
 };
 const publicPaths = ['/customerLogin', '/employeeLogin', '/customerRegister', '/employeeRegister'];
-const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements', '/employeeLoans'];
+const employeePaths = ['/employeeHome', '/employeeBalances', '/customers', '/employees', '/employeeStatements'];
 
 export default function App() {
   const [path, setPath] = useState(window.location.pathname);
