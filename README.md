@@ -2,6 +2,18 @@
 
 A banking application with a React/Vite frontend, a Flask backend, and PostgreSQL.
 
+Languages: Python, JavaScript/JSX, SQL/PL/pgSQL, HTML, CSS, and Bash.
+
+## Requirements
+
+- Windows, macOS, or Linux with Docker configured for Linux containers and
+  Docker Compose 2.24 or newer.
+- For the host demo: Python 3.14, Node.js 24, and a browser. The development
+  container workflow supplies Python, Node.js, and PostgreSQL 17.
+- Python dependencies are listed in [requirements.txt](requirements.txt);
+  frontend dependencies are listed in [frontend/package.json](frontend/package.json).
+  The commands below install both.
+
 ## Class Demo Quickstart
 
 The demo uses Docker Desktop, Python, and Node.js 24. Open Windows
@@ -73,6 +85,10 @@ and container frontend dependencies use separate named volumes. The app and
 database share a network namespace, so Flask connects to PostgreSQL at
 `localhost:5432`. The database is not published to the host.
 
+PostgreSQL automatically runs the scripts in [database/init/](database/init/)
+when its data volume is first initialized, creating the schema, roles, policies,
+views, triggers, and demo users. Other than first initialization, rebuiliding or recreating containers with existing data does NOT rerun the database setup scripts.
+
 Start the frontend from the repository root:
 
 ```sh
@@ -100,7 +116,7 @@ If you change PostgreSQL credentials after its data volume is initialized,
 update the database credentials too; changing `.env` does not alter existing
 database users.
 
-## Local development
+## Local development WIHTOUT Docker
 
 Install Node.js 24, Python, and PostgreSQL 17. Copy `.env.example` to `.env`,
 configure it for your local PostgreSQL database, then run from the repository root:
@@ -111,15 +127,33 @@ npm --prefix frontend ci
 npm --prefix frontend run dev
 ```
 
+For this non-Docker setup, create the database named by `POSTGRES_DB` and run
+the scripts in [database/init/](database/init/) in filename order using `psql`
+as a PostgreSQL administrator. Set `POSTGRES_APP_PASSWORD` in the `psql` process's
+environment to match `.env` before running `04_roles.sql`.
+
 Start Flask in a second terminal using the command above. See
 [`frontend/README.md`](frontend/README.md) for structure, build, lint, and proxy details.
 
-## Additional Notes
-- OS requirements
-- Programming language(s) used
-- Required software and dependencies
-- Installation instructions
-- Commands to execute the program
-- Login credentials for testing
-- Current incomplete features
-- : )
+## Test credentials
+
+Fresh databases include these synthetic users from
+[the seed data](database/init/02_demo_data.sql). Choose **Employee Login** for
+administrator and teller accounts.
+
+| Role | Email / username | Password |
+| --- | --- | --- |
+| Customer | `alice@example.com` | `alice` |
+| Customer | `bob@example.com` | `bob` |
+| Administrator | `admin1` | `admin1` |
+| Teller | `teller1` | `teller1` |
+| Teller | `teller2` | `teller2` |
+
+## Limitations and incomplete features
+
+- This is a local demo. HTTPS, multi-factor authentication, and login
+  rate limiting are not implemented.
+- Demo search routes are intentionally vulnerable when `DEMO_MODE=true`.
+  Setting `API_SECURITY_ENABLED=false` also bypasses authentication in demo mode.
+- Demo database data is NOT preserved when its containers are removed.
+- Account-to-account transfers and loans are not implemented.
