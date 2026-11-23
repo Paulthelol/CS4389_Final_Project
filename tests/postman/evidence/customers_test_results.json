@@ -1,0 +1,799 @@
+{
+  "collection": "CS4389 Customers API",
+  "started_at": "2026-11-22T23:04:20.040Z",
+  "completed_at": "2026-11-22T23:04:21.108Z",
+  "totals": {
+    "requests": 30,
+    "passed": 30,
+    "failed": 0,
+    "not_run": 0,
+    "assertions": 121,
+    "assertions_failed": 0
+  },
+  "requests": [
+    {
+      "folder": "A. Authentication prerequisites",
+      "name": "A1 Server is in secure mode",
+      "method": "GET",
+      "path": "/auth/demo/status",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "demo_mode is false",
+          "result": "PASS"
+        },
+        {
+          "name": "api_security_enabled is true",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "A. Authentication prerequisites",
+      "name": "A2 Employee login (admin)",
+      "method": "POST",
+      "path": "/auth/employees/login",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "returns a session token",
+          "result": "PASS"
+        },
+        {
+          "name": "role is admin",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "A. Authentication prerequisites",
+      "name": "A3 Customer login (Alice)",
+      "method": "POST",
+      "path": "/auth/customers/login",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "returns a session token",
+          "result": "PASS"
+        },
+        {
+          "name": "returns customer_id",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B1 Create customer",
+      "method": "POST",
+      "path": "/customers",
+      "status": 201,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 201",
+          "result": "PASS"
+        },
+        {
+          "name": "customer.customer_id returned",
+          "result": "PASS"
+        },
+        {
+          "name": "SSN is masked to last 4 digits",
+          "result": "PASS"
+        },
+        {
+          "name": "email normalized and returned",
+          "result": "PASS"
+        },
+        {
+          "name": "one-time setup_token returned",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B2 List customers",
+      "method": "GET",
+      "path": "/customers",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "returns an array",
+          "result": "PASS"
+        },
+        {
+          "name": "created customer is present",
+          "result": "PASS"
+        },
+        {
+          "name": "every customer has the masked shape",
+          "result": "PASS"
+        },
+        {
+          "name": "found a non-Alice customer for ownership tests",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B3 Get created customer",
+      "method": "GET",
+      "path": "/customers/3",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "ID matches",
+          "result": "PASS"
+        },
+        {
+          "name": "masked customer shape",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B4 PATCH created customer name (apostrophe)",
+      "method": "PATCH",
+      "path": "/customers/3",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "first_name updated",
+          "result": "PASS"
+        },
+        {
+          "name": "last_name stored literally with apostrophe",
+          "result": "PASS"
+        },
+        {
+          "name": "SSN still masked",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B5 Get created customer after PATCH",
+      "method": "GET",
+      "path": "/customers/3",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "update persisted",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B6 PUT created customer (partial)",
+      "method": "PUT",
+      "path": "/customers/3",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "first_name updated by PUT",
+          "result": "PASS"
+        },
+        {
+          "name": "last_name unchanged",
+          "result": "PASS"
+        },
+        {
+          "name": "SSN still masked",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B7 Create with missing fields is rejected",
+      "method": "POST",
+      "path": "/customers",
+      "status": 400,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 400",
+          "result": "PASS"
+        },
+        {
+          "name": "error message returned",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B8 Create with invalid SSN format is rejected",
+      "method": "POST",
+      "path": "/customers",
+      "status": 400,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 400",
+          "result": "PASS"
+        },
+        {
+          "name": "SSN format error",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B9 Invalid creates were not persisted",
+      "method": "GET",
+      "path": "/customers",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "no record with the rejected email",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "B. Customers CRUD (admin)",
+      "name": "B10 Create with duplicate email is rejected",
+      "method": "POST",
+      "path": "/customers",
+      "status": 409,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 409",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "C. Customer registration with setup token",
+      "name": "C1 Register created customer password",
+      "method": "POST",
+      "path": "/auth/customers/register",
+      "status": 201,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 201",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "C. Customer registration with setup token",
+      "name": "C2 Setup token cannot be reused",
+      "method": "POST",
+      "path": "/auth/customers/register",
+      "status": 400,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 400",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "C. Customer registration with setup token",
+      "name": "C3 New customer can log in",
+      "method": "POST",
+      "path": "/auth/customers/login",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "logged in as the created customer",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D1 Alice reads her own record",
+      "method": "GET",
+      "path": "/customers/1",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        },
+        {
+          "name": "ID is Alice's",
+          "result": "PASS"
+        },
+        {
+          "name": "masked customer shape",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D2 Alice cannot read another customer",
+      "method": "GET",
+      "path": "/customers/2",
+      "status": 404,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 404",
+          "result": "PASS"
+        },
+        {
+          "name": "no customer data returned",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D3 Alice cannot list all customers",
+      "method": "GET",
+      "path": "/customers",
+      "status": 403,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 403",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D4 No Authorization header",
+      "method": "GET",
+      "path": "/customers",
+      "status": 401,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 401",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D5 Invalid bearer token",
+      "method": "GET",
+      "path": "/customers",
+      "status": 401,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 401",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D6 Alice cannot create a customer",
+      "method": "POST",
+      "path": "/customers",
+      "status": 403,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 403",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D7 Alice cannot update her record",
+      "method": "PATCH",
+      "path": "/customers/1",
+      "status": 403,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 403",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "D. Security and negative cases",
+      "name": "D8 Vulnerable demo search is disabled",
+      "method": "GET",
+      "path": "/customers/vulnerable/search?name=...",
+      "status": 404,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 404",
+          "result": "PASS"
+        },
+        {
+          "name": "disabled message",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E1 Delete created customer",
+      "method": "DELETE",
+      "path": "/customers/3",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E2 Deleted customer is gone",
+      "method": "GET",
+      "path": "/customers/3",
+      "status": 404,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 404",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E3 Deleted customer's session no longer works",
+      "method": "GET",
+      "path": "/customers/3",
+      "status": 401,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 401",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E4 Logout Alice",
+      "method": "POST",
+      "path": "/auth/logout",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E5 Alice token rejected after logout",
+      "method": "GET",
+      "path": "/customers/1",
+      "status": 401,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 401",
+          "result": "PASS"
+        }
+      ]
+    },
+    {
+      "folder": "E. Cleanup",
+      "name": "E6 Logout admin",
+      "method": "POST",
+      "path": "/auth/logout",
+      "status": 200,
+      "result": "PASS",
+      "assertions": [
+        {
+          "name": "[global] response has no password_hash",
+          "result": "PASS"
+        },
+        {
+          "name": "[global] response has no unmasked SSN",
+          "result": "PASS"
+        },
+        {
+          "name": "status is 200",
+          "result": "PASS"
+        }
+      ]
+    }
+  ]
+}

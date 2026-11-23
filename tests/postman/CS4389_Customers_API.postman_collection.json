@@ -1,0 +1,1514 @@
+{
+  "info": {
+    "_postman_id": "8d6f1b2e-4c1a-4f3e-9a51-6c2b7e0d4a11",
+    "name": "CS4389 Customers API",
+    "description": "Customers API tests for the secure configuration (DEMO_MODE=false, API_SECURITY_ENABLED=true, DB_ACCESS_MODE=appuser). Run folders in order. See tests/postman/README.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{admin_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Runs after every request: no password hashes or raw SSNs may appear in any response.",
+          "const bodyText = pm.response.text();",
+          "pm.test(\"[global] response has no password_hash\", function () {",
+          "    pm.expect(bodyText.includes(\"password_hash\"), \"password_hash found in response\").to.be.false;",
+          "});",
+          "pm.test(\"[global] response has no unmasked SSN\", function () {",
+          "    pm.expect(/(^|[^0-9*])\\d{3}-\\d{2}-\\d{4}(?![0-9])/.test(bodyText), \"raw SSN pattern found in response\").to.be.false;",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "A. Authentication prerequisites",
+      "description": "Confirms secure mode and stores session tokens for later requests.",
+      "item": [
+        {
+          "name": "A1 Server is in secure mode",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const s = pm.response.json();",
+                  "pm.test(\"demo_mode is false\", function () { pm.expect(s.demo_mode).to.eql(false); });",
+                  "pm.test(\"api_security_enabled is true\", function () { pm.expect(s.api_security_enabled).to.eql(true); });",
+                  "if (s.demo_mode !== false || s.api_security_enabled !== true) {",
+                  "    console.error(\"Server is not in secure mode; stopping the run.\");",
+                  "    pm.execution.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/demo/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "demo",
+                "status"
+              ]
+            },
+            "description": "Guard: the security assertions below are only meaningful when DEMO_MODE=false and API_SECURITY_ENABLED=true. Stops the run otherwise.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "A2 Employee login (admin)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const r = pm.response.json();",
+                  "pm.test(\"returns a session token\", function () { pm.expect(r.session_token, \"session_token\").to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"role is admin\", function () { pm.expect(r.employee && r.employee.role).to.eql(\"admin\"); });",
+                  "if (r.session_token) pm.environment.set(\"admin_token\", r.session_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/employees/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "employees",
+                "login"
+              ]
+            },
+            "description": "Authenticates the seeded admin and stores the bearer token in admin_token.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{admin_username}}\",\n  \"password\": \"{{admin_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "A3 Customer login (Alice)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const r = pm.response.json();",
+                  "pm.test(\"returns a session token\", function () { pm.expect(r.session_token, \"session_token\").to.be.a(\"string\").and.not.empty; });",
+                  "pm.test(\"returns customer_id\", function () { pm.expect(r.customer && r.customer.customer_id).to.be.a(\"number\"); });",
+                  "if (r.session_token) pm.environment.set(\"alice_token\", r.session_token);",
+                  "if (r.customer) pm.environment.set(\"alice_customer_id\", r.customer.customer_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/customers/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "customers",
+                "login"
+              ]
+            },
+            "description": "Authenticates seeded customer Alice and stores her token and customer ID from the response.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{alice_email}}\",\n  \"password\": \"{{alice_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "B. Customers CRUD (admin)",
+      "description": "Full lifecycle of one synthetic customer created by this run. Uses the collection's admin bearer token.",
+      "item": [
+        {
+          "name": "B1 Create customer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Synthetic SSN in the 900-999 area range, which is never issued; random digits avoid collisions between runs.",
+                  "const d = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join(\"\");",
+                  "const runId = Date.now().toString(36) + d(4);",
+                  "const ssn = \"9\" + d(2) + \"-\" + d(2) + \"-\" + d(4);",
+                  "pm.environment.set(\"run_id\", runId);",
+                  "pm.environment.set(\"created_ssn\", ssn);",
+                  "pm.environment.set(\"created_email\", \"postman.test.\" + runId + \"@example.com\");",
+                  "pm.environment.unset(\"created_customer_id\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(201);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "const r = pm.response.json();",
+                  "const c = r.customer || {};",
+                  "pm.test(\"customer.customer_id returned\", function () { pm.expect(c.customer_id).to.be.a(\"number\"); });",
+                  "pm.test(\"SSN is masked to last 4 digits\", function () {",
+                  "    pm.expect(c.ssn).to.eql(\"***-**-\" + pm.environment.get(\"created_ssn\").slice(-4));",
+                  "});",
+                  "pm.test(\"email normalized and returned\", function () { pm.expect(c.email).to.eql(pm.environment.get(\"created_email\")); });",
+                  "pm.test(\"one-time setup_token returned\", function () { pm.expect(r.setup_token, \"setup_token\").to.be.a(\"string\").and.not.empty; });",
+                  "if (c.customer_id) pm.environment.set(\"created_customer_id\", c.customer_id);",
+                  "if (r.setup_token) pm.environment.set(\"setup_token\", r.setup_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Creates a unique synthetic customer. Checks 201, masked SSN, no password_hash. The response contains a one-time setup_token: redact it in screenshots.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Postman\",\n  \"last_name\": \"Tester\",\n  \"ssn\": \"{{created_ssn}}\",\n  \"email\": \"{{created_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "B2 List customers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "function checkCustomer(c, label) {",
+                  "    pm.expect(Object.keys(c).sort(), label + \" fields\").to.eql([\"customer_id\", \"email\", \"first_name\", \"last_name\", \"ssn\"]);",
+                  "    pm.expect(MASKED_SSN.test(c.ssn), label + \" SSN is masked\").to.be.true;",
+                  "}",
+                  "const list = pm.response.json();",
+                  "pm.test(\"returns an array\", function () { pm.expect(list).to.be.an(\"array\"); });",
+                  "pm.test(\"created customer is present\", function () {",
+                  "    pm.expect(list.some((c) => c.customer_id === Number(pm.environment.get(\"created_customer_id\")))).to.be.true;",
+                  "});",
+                  "pm.test(\"every customer has the masked shape\", function () { list.forEach((c) => checkCustomer(c, \"customer \" + c.customer_id)); });",
+                  "// Prefer seeded Bob; fall back to any seeded customer that is not Alice and not created by this run.",
+                  "const alice = Number(pm.environment.get(\"alice_customer_id\"));",
+                  "const created = Number(pm.environment.get(\"created_customer_id\"));",
+                  "const other = list.find((c) => c.email === \"bob@example.com\") || list.find((c) => c.customer_id !== alice && c.customer_id !== created);",
+                  "pm.test(\"found a non-Alice customer for ownership tests\", function () { pm.expect(other, \"other customer\").to.exist; });",
+                  "if (other) pm.environment.set(\"other_customer_id\", other.customer_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Employees can list all customers. Every SSN must be masked. Also picks a seeded non-Alice customer for the ownership tests."
+          }
+        },
+        {
+          "name": "B3 Get created customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "function checkCustomer(c, label) {",
+                  "    pm.expect(Object.keys(c).sort(), label + \" fields\").to.eql([\"customer_id\", \"email\", \"first_name\", \"last_name\", \"ssn\"]);",
+                  "    pm.expect(MASKED_SSN.test(c.ssn), label + \" SSN is masked\").to.be.true;",
+                  "}",
+                  "const c = pm.response.json();",
+                  "pm.test(\"ID matches\", function () { pm.expect(c.customer_id).to.eql(Number(pm.environment.get(\"created_customer_id\"))); });",
+                  "pm.test(\"masked customer shape\", function () { checkCustomer(c, \"customer\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "Employee reads one customer by ID. Checks the ID, field set, and SSN masking."
+          }
+        },
+        {
+          "name": "B4 PATCH created customer name (apostrophe)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "const c = pm.response.json();",
+                  "pm.test(\"first_name updated\", function () { pm.expect(c.first_name).to.eql(\"Patched\"); });",
+                  "pm.test(\"last_name stored literally with apostrophe\", function () { pm.expect(c.last_name).to.eql(\"O'Connor\"); });",
+                  "pm.test(\"SSN still masked\", function () { pm.expect(MASKED_SSN.test(c.ssn)).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "Employee updates name fields. The apostrophe in O'Connor checks that parameterized SQL stores it as literal data.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Patched\",\n  \"last_name\": \"O'Connor\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "B5 Get created customer after PATCH",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const c = pm.response.json();",
+                  "pm.test(\"update persisted\", function () {",
+                  "    pm.expect(c.first_name).to.eql(\"Patched\");",
+                  "    pm.expect(c.last_name).to.eql(\"O'Connor\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "Confirms the PATCH was persisted, not just echoed."
+          }
+        },
+        {
+          "name": "B6 PUT created customer (partial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "const c = pm.response.json();",
+                  "pm.test(\"first_name updated by PUT\", function () { pm.expect(c.first_name).to.eql(\"Putname\"); });",
+                  "pm.test(\"last_name unchanged\", function () { pm.expect(c.last_name).to.eql(\"O'Connor\"); });",
+                  "pm.test(\"SSN still masked\", function () { pm.expect(MASKED_SSN.test(c.ssn)).to.be.true; });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "PUT is routed to the same handler as PATCH and accepts partial updates.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Putname\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "B7 Create with missing fields is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(400);",
+                  "});",
+                  "pm.test(\"error message returned\", function () { pm.expect(pm.response.json().error).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Input validation: last_name and ssn are required. Expects 400.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Invalid\",\n  \"email\": \"postman.invalid.{{run_id}}@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "B8 Create with invalid SSN format is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(400);",
+                  "});",
+                  "pm.test(\"SSN format error\", function () { pm.expect(pm.response.json().error).to.include(\"XXX-XX-XXXX\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Input validation: SSN must be XXX-XX-XXXX. Expects 400.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Invalid\",\n  \"last_name\": \"Ssn\",\n  \"ssn\": \"123456789\",\n  \"email\": \"postman.invalid.{{run_id}}@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "B9 Invalid creates were not persisted",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const invalid = \"postman.invalid.\" + pm.environment.get(\"run_id\") + \"@example.com\";",
+                  "pm.test(\"no record with the rejected email\", function () {",
+                  "    pm.expect(pm.response.json().some((c) => c.email === invalid)).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Confirms neither rejected create left a record behind."
+          }
+        },
+        {
+          "name": "B10 Create with duplicate email is rejected",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const d = (n) => Array.from({ length: n }, () => Math.floor(Math.random() * 10)).join(\"\");",
+                  "pm.environment.set(\"duplicate_ssn\", \"9\" + d(2) + \"-\" + d(2) + \"-\" + d(4));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Email is unique. Reusing the created customer's email with a new SSN expects 409.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Duplicate\",\n  \"last_name\": \"Email\",\n  \"ssn\": \"{{duplicate_ssn}}\",\n  \"email\": \"{{created_email}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "C. Customer registration with setup token",
+      "description": "Uses the created customer's one-time setup token. The token and the generated password are never stored outside the runtime environment.",
+      "item": [
+        {
+          "name": "C1 Register created customer password",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}",
+                  "// Random temporary password generated at runtime only.",
+                  "const chars = \"ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789\";",
+                  "pm.environment.set(\"new_customer_password\", Array.from({ length: 24 }, () => chars[Math.floor(Math.random() * chars.length)]).join(\"\"));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/customers/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "customers",
+                "register"
+              ]
+            },
+            "description": "Sets the new customer's password with the one-time setup token. Expects 201.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{created_email}}\",\n  \"setup_token\": \"{{setup_token}}\",\n  \"password\": \"{{new_customer_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "C2 Setup token cannot be reused",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/customers/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "customers",
+                "register"
+              ]
+            },
+            "description": "The same setup token a second time must fail. Expects 400.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{created_email}}\",\n  \"setup_token\": \"{{setup_token}}\",\n  \"password\": \"{{new_customer_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "C3 New customer can log in",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const r = pm.response.json();",
+                  "pm.test(\"logged in as the created customer\", function () {",
+                  "    pm.expect(r.customer && r.customer.customer_id).to.eql(Number(pm.environment.get(\"created_customer_id\")));",
+                  "});",
+                  "if (r.session_token) pm.environment.set(\"new_customer_token\", r.session_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/customers/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "customers",
+                "login"
+              ]
+            },
+            "description": "The newly registered customer logs in with the password set in C1.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{created_email}}\",\n  \"password\": \"{{new_customer_password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "D. Security and negative cases",
+      "description": "Authentication (401), role checks (403), record ownership (404), and the disabled demo endpoint.",
+      "item": [
+        {
+          "name": "D1 Alice reads her own record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "const MASKED_SSN = /^\\*\\*\\*-\\*\\*-\\d{4}$/;",
+                  "function checkCustomer(c, label) {",
+                  "    pm.expect(Object.keys(c).sort(), label + \" fields\").to.eql([\"customer_id\", \"email\", \"first_name\", \"last_name\", \"ssn\"]);",
+                  "    pm.expect(MASKED_SSN.test(c.ssn), label + \" SSN is masked\").to.be.true;",
+                  "}",
+                  "const c = pm.response.json();",
+                  "pm.test(\"ID is Alice's\", function () { pm.expect(c.customer_id).to.eql(Number(pm.environment.get(\"alice_customer_id\"))); });",
+                  "pm.test(\"masked customer shape\", function () { checkCustomer(c, \"Alice\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{alice_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{alice_customer_id}}"
+              ]
+            },
+            "description": "A customer can read their own record, masked.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D2 Alice cannot read another customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(404);",
+                  "});",
+                  "pm.test(\"no customer data returned\", function () { pm.expect(pm.response.json()).to.not.have.property(\"customer_id\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{other_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{other_customer_id}}"
+              ]
+            },
+            "description": "Record-level ownership: another customer's record is reported as not found (404), so its existence is not revealed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D3 Alice cannot list all customers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Role check: listing customers is employee-only. Expects 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D4 No Authorization header",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Authentication: a request without a bearer token expects 401.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "D5 Invalid bearer token",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set(\"invalid_token\", \"not-a-real-session-token\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Authentication: an unknown token expects 401.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{invalid_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "D6 Alice cannot create a customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(403);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    console.error(\"CRITICAL: customer was able to create a customer record; deleting it.\");",
+                  "    const id = pm.response.json().customer.customer_id;",
+                  "    pm.sendRequest({",
+                  "        url: pm.environment.get(\"base_url\") + \"/customers/\" + id,",
+                  "        method: \"DELETE\",",
+                  "        header: { Authorization: \"Bearer \" + pm.environment.get(\"admin_token\") },",
+                  "    }, function (err, res) { console.error(\"cleanup DELETE status: \" + (err ? err : res.code)); });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers"
+              ]
+            },
+            "description": "Role check: creating customers is employee-only. Expects 403. If it ever succeeds, the record is deleted immediately with the admin token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Should\",\n  \"last_name\": \"Fail\",\n  \"ssn\": \"{{duplicate_ssn}}\",\n  \"email\": \"postman.forbidden.{{run_id}}@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "D7 Alice cannot update her record",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 403\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/customers/{{alice_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{alice_customer_id}}"
+              ]
+            },
+            "description": "Role check: updates are employee-only, even for the record owner. Expects 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Hacked\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "D8 Vulnerable demo search is disabled",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(404);",
+                  "});",
+                  "pm.test(\"disabled message\", function () { pm.expect(pm.response.json().error).to.eql(\"Demo endpoint is disabled\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/vulnerable/search?name=Alice",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "vulnerable",
+                "search"
+              ],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "Alice"
+                }
+              ]
+            },
+            "description": "The deliberately vulnerable SQL injection demo endpoint must return 404 when DEMO_MODE=false. Uses a benign name and the admin token so the mode gate, not the role check, is what is tested."
+          }
+        }
+      ]
+    },
+    {
+      "name": "E. Cleanup",
+      "description": "Deletes only the customer this run created, then logs out. Run last.",
+      "item": [
+        {
+          "name": "E1 Delete created customer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}",
+                  "const id = Number(pm.environment.get(\"created_customer_id\"));",
+                  "if (id === Number(pm.environment.get(\"alice_customer_id\")) || id === Number(pm.environment.get(\"other_customer_id\"))) {",
+                  "    console.error(\"Refusing to delete a seeded customer; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "Deletes the customer created in B1. Skipped if B1 did not create one."
+          }
+        },
+        {
+          "name": "E2 Deleted customer is gone",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "A deleted customer returns 404."
+          }
+        },
+        {
+          "name": "E3 Deleted customer's session no longer works",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Never act on a record this run did not create.",
+                  "if (!pm.environment.get(\"created_customer_id\")) {",
+                  "    console.warn(\"created_customer_id is not set; skipping\");",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{created_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{created_customer_id}}"
+              ]
+            },
+            "description": "Sessions cascade on customer delete, so the C3 token is now invalid. Expects 401.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{new_customer_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "E4 Logout Alice",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates Alice's session.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "E5 Alice token rejected after logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 401\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/customers/{{alice_customer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "customers",
+                "{{alice_customer_id}}"
+              ]
+            },
+            "description": "A logged-out token expects 401.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{alice_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "E6 Logout admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.expect(pm.response.code, \"HTTP status\").to.eql(200);",
+                  "});",
+                  "[\"admin_token\", \"alice_token\", \"new_customer_token\", \"setup_token\", \"new_customer_password\",",
+                  " \"created_ssn\", \"duplicate_ssn\", \"invalid_token\", \"created_customer_id\"].forEach((k) => pm.environment.unset(k));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Invalidates the admin session and clears every runtime secret from the environment."
+          }
+        }
+      ]
+    }
+  ]
+}
