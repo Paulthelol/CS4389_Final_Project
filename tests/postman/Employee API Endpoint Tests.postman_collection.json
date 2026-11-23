@@ -1,0 +1,416 @@
+{
+  "info": {
+    "_postman_id": "262d2bba-98d1-46d1-874f-b2124883403b",
+    "name": "Employee API Endpoint Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "60356860"
+  },
+  "item": [
+    {
+      "name": "Teller Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Teller login successful\", () => {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "const data = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Teller token exists\", () => {\r",
+              "    pm.expect(data.session_token).to.be.a(\"string\");\r",
+              "});\r",
+              "\r",
+              "pm.environment.set(\"teller_token\", data.session_token);\r",
+              "pm.environment.set(\"teller_id\", data.employee.employee_id);"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "R{\r\n    \"username\": \"teller1\",\r\n    \"password\": \"teller1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/employees/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "employees",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Admin login successful\", () => {\r",
+              "    pm.response.to.have.status(200);\r",
+              "});\r",
+              "\r",
+              "const data = pm.response.json();\r",
+              "\r",
+              "pm.test(\"Admin token exists\", () => {\r",
+              "    pm.expect(data.session_token).to.be.a(\"string\");\r",
+              "});\r",
+              "\r",
+              "pm.environment.set(\"admin_token\", data.session_token);\r",
+              "pm.environment.set(\"admin_id\", data.employee.employee_id);"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{admin_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "raw",
+          "raw": "{\r\n    \"username\": \"admin1\",\r\n    \"password\": \"admin1\"\r\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/auth/employees/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "auth",
+            "employees",
+            "login"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Retrieve Employees - Secure",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Retrieve Employees - Vulnerable",
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Retrieve Other Employee Record - Secure",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Retrieve Other Employee Record - Vulnerable",
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Username - Secure",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Update Username - Vulnerable",
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/{{employee_id}}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "{{employee_id}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Employee - Secure",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Delete Employee - Vulnerable",
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/2",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "2"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SQL Injection - Secure",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{employee_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/vulnerable/search?name=' OR '1'='1",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "vulnerable",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "' OR '1'='1"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "SQL Injection - Vulnerable",
+      "request": {
+        "auth": {
+          "type": "bearer"
+        },
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/employees/vulnerable/search?name=' OR '1'='1",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "employees",
+            "vulnerable",
+            "search"
+          ],
+          "query": [
+            {
+              "key": "name",
+              "value": "' OR '1'='1"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:5173",
+      "type": "string"
+    },
+    {
+      "key": "employee_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "employee_username",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
